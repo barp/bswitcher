@@ -1,9 +1,33 @@
 use async_std;
+use async_std::fs;
 use async_std::net::UdpSocket;
 use async_std::prelude::*;
+use clap::{Parser, Subcommand};
+use reqwest::tls::{Certificate, Identity};
+use reqwest::Client;
 use serde::Deserialize;
 use std::str;
 use std::time::{Duration, SystemTime};
+
+#[derive(Debug)]
+enum CombinedError {
+    IoError(async_std::io::Error),
+    ReqwestError(reqwest::Error),
+}
+
+impl From<async_std::io::Error> for CombinedError {
+    fn from(e: async_std::io::Error) -> Self {
+        Self::IoError(e)
+    }
+}
+
+impl From<reqwest::Error> for CombinedError {
+    fn from(e: reqwest::Error) -> Self {
+        Self::ReqwestError(e)
+    }
+}
+
+type Result<T> = std::result::Result<T, CombinedError>;
 
 #[derive(Deserialize)]
 #[allow(non_snake_case, dead_code)]
@@ -39,7 +63,7 @@ struct CuData {
     // private HashMap<Integer, UnitItem> unitsMap;
 }
 
-async fn collect_responses(socket: UdpSocket) -> std::io::Result<Vec<CuData>> {
+async fn collect_responses(socket: UdpSocket) -> Result<Vec<CuData>> {
     let mut buf: [u8; 100000] = [0; 100000];
 
     let mut results: Vec<CuData> = Vec::new();
@@ -67,7 +91,7 @@ async fn collect_responses(socket: UdpSocket) -> std::io::Result<Vec<CuData>> {
     Ok(results)
 }
 
-async fn discover_central_units() -> std::io::Result<()> {
+async fn discover_central_units() -> Result<()> {
     let socket = UdpSocket::bind("0.0.0.0:0").await?;
     socket.set_broadcast(true)?;
     socket
@@ -77,7 +101,65 @@ async fn discover_central_units() -> std::io::Result<()> {
     Ok(())
 }
 
+async fn get_identity() -> Result<Identity> {
+    let contents = fs::read("./client.pem").await?;
+    Ok(reqwest::Identity::from_pem(&contents)?)
+}
+
+async fn get_server_certificate() -> Result<Certificate> {
+    let contents = fs::read("./cert.pem").await?;
+    Ok(Certificate::from_pem(&contents)?)
+}
+
+async fn get_default_https_client() -> Result<reqwest::Client> {
+    let cert = get_server_certificate().await?;
+    let identity = get_identity().await?;
+    Ok(Client::builder()
+        .add_root_certificate(cert)
+        .identity(identity)
+        .build()?)
+}
+
+#[derive(Parser)]
+struct Cli {
+    #[clap(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Discover,
+    Register,
+}
+
 #[async_std::main]
 async fn main() {
-    discover_central_units().await.unwrap();
+    let cli = Cli::parse();
+    match &cli.command {
+        Commands::Discover => discover_central_units().await.unwrap(),
+        Commands::Register => {
+            get_default_https_client()
+                .await
+                .unwrap()
+                .post("http://asdas.com")
+                .send()
+                .await
+                .unwrap()
+                .text()
+                .await
+                .unwrap();
+        }
+    }
+    // let x = get_default_https_client()
+    //     .await
+    //     .unwrap()
+    //     .post("http://asdas.com")
+    //     .send()
+    //     .await
+    //     .unwrap()
+    //     .text()
+    //     .await
+    //     .unwrap();
+    // println!("{}", x)
+    // discover_central_units().await.unwrap();
 }
