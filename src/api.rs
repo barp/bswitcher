@@ -4,7 +4,7 @@ use async_std::net::UdpSocket;
 use async_std::prelude::*;
 use reqwest::tls::{Certificate, Identity};
 use reqwest::Client;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::str;
 use std::time::{Duration, SystemTime};
 
@@ -60,6 +60,23 @@ struct CuData {
     // private HashMap<Integer, TimerItem> timersMap;
     // private Vector<UnitItem> unitItems;
     // private HashMap<Integer, UnitItem> unitsMap;
+}
+
+#[derive(Serialize, Deserialize)]
+#[allow(non_snake_case, dead_code)]
+struct RegisterDeviceParams {
+    // Device model
+    device: String,
+    // Generated public key x509
+    deviceCertificate: String,
+    email: String,
+    // password
+    key: String,
+    // Admin name
+    name: String,
+    password: String,
+    // seems to be unused
+    pin: String,
 }
 
 async fn collect_responses(socket: UdpSocket) -> Result<Vec<CuData>> {
