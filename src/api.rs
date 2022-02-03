@@ -28,23 +28,32 @@ impl From<reqwest::Error> for CombinedError {
 
 type Result<T> = std::result::Result<T, CombinedError>;
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 #[allow(non_snake_case, dead_code)]
 struct CuData {
+    #[serde(default)]
     CUIP: String,
     CUVersion: String,
     NoUsers: bool,
+    #[serde(default)]
     apVer: i32,
+    #[serde(default)]
     autoHolidayMode: bool,
+    #[serde(default)]
     holiday: bool,
     ip: String,
+    #[serde(default)]
     lat: f64,
+    #[serde(default)]
     lon: f64,
     mac: String,
     name: String,
+    #[serde(default)]
     pin: String,
+    #[serde(default)]
     pnpe: bool,
     port: i32,
+    #[serde(default)]
     time: i64,
     timeStr: String,
     timeZone: i32,
@@ -98,10 +107,11 @@ async fn collect_responses(socket: UdpSocket) -> Result<Vec<CuData>> {
             Err(_) => break,
         }?;
         println!("data_size: {}, ip: {}", ret.0, ret.1);
-        println!("data:");
         let str_data = str::from_utf8(&buf[0..ret.0]).unwrap();
-        println!("{}", str_data);
-        results.push(serde_json::from_str(str_data).unwrap());
+        let mut cudata: CuData = serde_json::from_str(str_data).unwrap();
+        cudata.CUIP = ret.1.to_string();
+        println!("CUDATA: {:?}", cudata);
+        results.push(cudata);
     }
 
     Ok(results)
@@ -111,7 +121,7 @@ pub async fn discover_central_units() -> Result<()> {
     let socket = UdpSocket::bind("0.0.0.0:0").await?;
     socket.set_broadcast(true)?;
     socket
-        .send_to("find".as_bytes(), "255.255.255.255:8872".to_string())
+        .send_to("FIND".as_bytes(), "255.255.255.255:8872".to_string())
         .await?;
     collect_responses(socket).await?;
     Ok(())
