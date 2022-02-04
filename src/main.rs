@@ -1,3 +1,4 @@
+use async_std::fs;
 use base64;
 use clap::{Parser, Subcommand};
 
@@ -42,13 +43,16 @@ async fn main() {
                 device: "android_REL_HA".to_string(),
                 deviceCertificate: base64::encode_config(cert.to_der().unwrap(), base64::URL_SAFE),
             };
-            print!(
-                "{}",
-                String::from_utf8(pk.private_key_to_pem_pkcs8().unwrap()).unwrap()
-            );
-            println!("{}", String::from_utf8(cert.to_pem().unwrap()).unwrap());
+            println!("saving private key in device.key");
+            let pkcs12cert = openssl::pkcs12::Pkcs12::builder()
+                .build("1234", "device cert", &pk, &cert)
+                .unwrap();
+            fs::write("./device.key", pkcs12cert.to_der().unwrap())
+                .await
+                .unwrap();
             let client = get_default_https_client().await.unwrap();
-            register_device(&client, ip, &params).await.unwrap();
+            let resp = register_device(&client, ip, &params).await.unwrap();
+            println!("resp: {:?}", resp);
         }
     }
     // let x = get_default_https_client()

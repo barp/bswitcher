@@ -1,18 +1,24 @@
 use async_std;
 use async_std::fs;
-use async_std::net::{SocketAddr, UdpSocket};
+use async_std::net::UdpSocket;
 use async_std::prelude::*;
-use reqwest::tls::{Certificate, Identity};
+use reqwest::tls::Identity;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::str;
 use std::time::{Duration, SystemTime};
 
 #[derive(Debug)]
+pub struct ApiError {
+    pub status: OperationStatus,
+}
+
+#[derive(Debug)]
 pub enum CombinedError {
     IoError(async_std::io::Error),
     ReqwestError(reqwest::Error),
     SerdeJsonError(serde_json::Error),
+    ApiError(ApiError),
 }
 
 impl From<async_std::io::Error> for CombinedError {
@@ -78,7 +84,7 @@ pub struct CuData {
     // private HashMap<Integer, UnitItem> unitsMap;
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 #[allow(non_snake_case, dead_code)]
 pub struct RegisterDeviceParams {
     // Device model
@@ -93,6 +99,37 @@ pub struct RegisterDeviceParams {
     pub password: String,
     // seems to be unused
     pub pin: String,
+}
+
+#[derive(Deserialize, PartialEq, Debug)]
+pub enum OperationStatus {
+    OK,
+    ERROR,
+    KeyError,
+    EmailError,
+    PermissionError,
+    UserNotFound,
+    DeviceNotFound,
+    FileNotFound,
+    LastAdminError,
+    NameError,
+    Busy,
+    Full,
+    Empty,
+    SignalError,
+    Timeout,
+    Cancelled,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct CuStatus {
+    pub status: OperationStatus,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RegisterDeviceResponse {
+    #[serde(flatten)]
+    pub status: CuStatus,
 }
 
 async fn collect_responses(socket: UdpSocket) -> Result<Vec<CuData>> {
@@ -152,7 +189,7 @@ pub async fn register_device(
     client: &reqwest::Client,
     ip: &String,
     params: &RegisterDeviceParams,
-) -> Result<()> {
+) -> Result<RegisterDeviceResponse> {
     let req_text = "REGD".to_string() + &serde_json::to_string(params)?;
     let req = match client
         .post("https://".to_owned() + ip + ":8443/commands")
@@ -167,6 +204,11 @@ pub async fn register_device(
         }
     };
     let resp = req.text().await?;
-    println!("resp: {}", resp);
-    Ok(())
+    let resp: RegisterDeviceResponse = serde_json::from_str(&resp)?;
+    if resp.status.status != OperationStatus::OK {
+        return Err(CombinedError::ApiError(ApiError {
+            status: resp.status.status,
+        }));
+    }
+    Ok(resp)
 }
