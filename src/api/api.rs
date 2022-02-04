@@ -90,10 +90,8 @@ pub struct RegisterDeviceParams {
     pub key: String,
     // Admin name
     pub name: String,
-    #[serde(skip_serializing_if = "String::is_empty")]
     pub password: String,
     // seems to be unused
-    #[serde(skip_serializing_if = "String::is_empty")]
     pub pin: String,
 }
 
@@ -137,20 +135,15 @@ pub async fn discover_central_units() -> Result<()> {
 }
 
 async fn get_identity() -> Result<Identity> {
-    let contents = fs::read("./client.pem").await?;
-    Ok(reqwest::Identity::from_pem(&contents)?)
-}
-
-async fn get_server_certificate() -> Result<Certificate> {
-    let contents = fs::read("./cert.pem").await?;
-    Ok(Certificate::from_pem(&contents)?)
+    let contents = fs::read("./id.pfx").await?;
+    Ok(reqwest::Identity::from_pkcs12_der(&contents, "1234")?)
 }
 
 pub async fn get_default_https_client() -> Result<reqwest::Client> {
-    let cert = get_server_certificate().await?;
     let identity = get_identity().await?;
     Ok(Client::builder()
-        .add_root_certificate(cert)
+        // .add_root_certificate(cert)
+        .danger_accept_invalid_certs(true)
         .identity(identity)
         .build()?)
 }
@@ -160,11 +153,19 @@ pub async fn register_device(
     ip: &String,
     params: &RegisterDeviceParams,
 ) -> Result<()> {
-    let req = client
+    let req_text = "REGD".to_string() + &serde_json::to_string(params)?;
+    let req = match client
         .post("https://".to_owned() + ip + ":8443/commands")
-        .body("REGD".to_string() + &serde_json::to_string(params)?)
+        .body(req_text)
         .send()
-        .await?;
+        .await
+    {
+        Ok(val) => val,
+        Err(e) => {
+            println!("Failed to send request {}\n", e);
+            return Err(CombinedError::ReqwestError(e));
+        }
+    };
     let resp = req.text().await?;
     println!("resp: {}", resp);
     Ok(())
