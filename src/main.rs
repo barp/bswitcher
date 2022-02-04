@@ -17,7 +17,8 @@ struct Cli {
 enum Commands {
     Discover,
     Register {
-        ip: String,
+        #[clap(long)]
+        ip: Option<String>,
         email: String,
         password: String,
     },
@@ -27,12 +28,25 @@ enum Commands {
 async fn main() {
     let cli = Cli::parse();
     match &cli.command {
-        Commands::Discover => discover_central_units().await.unwrap(),
+        Commands::Discover => {
+            let cus = discover_central_units(false).await.unwrap();
+            println!("{:?}", cus)
+        }
         Commands::Register {
             ip,
             email,
             password,
         } => {
+            let real_ip = match ip {
+                Some(p) => p.to_string(),
+                None => {
+                    let cu = discover_central_units(true).await.unwrap();
+                    if cu.len() < 1 {
+                        panic!("no central unit found")
+                    }
+                    cu[0].CUIP.to_owned()
+                }
+            };
             let (pk, cert) = generate_keypair("barp12@gmail.com");
             let params = RegisterDeviceParams {
                 name: email.to_string(),
@@ -51,20 +65,8 @@ async fn main() {
                 .await
                 .unwrap();
             let client = get_default_https_client().await.unwrap();
-            let resp = register_device(&client, ip, &params).await.unwrap();
+            let resp = register_device(&client, &real_ip, &params).await.unwrap();
             println!("resp: {:?}", resp);
         }
     }
-    // let x = get_default_https_client()
-    //     .await
-    //     .unwrap()
-    //     .post("http://asdas.com")
-    //     .send()
-    //     .await
-    //     .unwrap()
-    //     .text()
-    //     .await
-    //     .unwrap();
-    // println!("{}", x)
-    // discover_central_units().await.unwrap();
 }

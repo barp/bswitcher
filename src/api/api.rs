@@ -45,7 +45,7 @@ type Result<T> = std::result::Result<T, CombinedError>;
 #[allow(non_snake_case, dead_code)]
 pub struct CuData {
     #[serde(default)]
-    CUIP: String,
+    pub CUIP: String,
     CUVersion: String,
     NoUsers: bool,
     #[serde(default)]
@@ -132,7 +132,7 @@ pub struct RegisterDeviceResponse {
     pub status: CuStatus,
 }
 
-async fn collect_responses(socket: UdpSocket) -> Result<Vec<CuData>> {
+async fn collect_responses(socket: UdpSocket, exit_on_first: bool) -> Result<Vec<CuData>> {
     let mut buf: [u8; 100000] = [0; 100000];
 
     let mut results: Vec<CuData> = Vec::new();
@@ -156,19 +156,21 @@ async fn collect_responses(socket: UdpSocket) -> Result<Vec<CuData>> {
         cudata.CUIP = ip.ip().to_string();
         println!("CUDATA: {:?}", cudata);
         results.push(cudata);
+        if exit_on_first {
+            break;
+        }
     }
 
     Ok(results)
 }
 
-pub async fn discover_central_units() -> Result<()> {
+pub async fn discover_central_units(exit_on_first: bool) -> Result<Vec<CuData>> {
     let socket = UdpSocket::bind("0.0.0.0:0").await?;
     socket.set_broadcast(true)?;
     socket
         .send_to("FIND".as_bytes(), "255.255.255.255:8872".to_string())
         .await?;
-    collect_responses(socket).await?;
-    Ok(())
+    Ok(collect_responses(socket, exit_on_first).await?)
 }
 
 async fn get_identity() -> Result<Identity> {
