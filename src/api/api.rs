@@ -83,8 +83,10 @@ struct RegisterDeviceParams {
     key: String,
     // Admin name
     name: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
     password: String,
     // seems to be unused
+    #[serde(skip_serializing_if = "String::is_empty")]
     pin: String,
 }
 

@@ -2,7 +2,8 @@ use clap::{Parser, Subcommand};
 
 mod api;
 
-use crate::api::*;
+use crate::api::api::*;
+use crate::api::keygen::*;
 
 #[derive(Parser)]
 struct Cli {
@@ -22,17 +23,12 @@ async fn main() {
     match &cli.command {
         Commands::Discover => discover_central_units().await.unwrap(),
         Commands::Register => {
-            let x = get_default_https_client()
-                .await
-                .unwrap()
-                .post("https://asdas.com")
-                .send()
-                .await
-                .unwrap()
-                .text()
-                .await
-                .unwrap();
-            println!("{}", x)
+            let (pk, cert) = generate_keypair("barp12@gmail.com");
+            print!(
+                "{}",
+                String::from_utf8(pk.private_key_to_pem_pkcs8().unwrap()).unwrap()
+            );
+            println!("{}", String::from_utf8(cert.to_pem().unwrap()).unwrap());
         }
     }
     // let x = get_default_https_client()

@@ -264,6 +264,7 @@ dependencies = [
  "async-std",
  "async-stream",
  "clap",
+ "openssl",
  "reqwest",
  "serde",
  "serde_json",
