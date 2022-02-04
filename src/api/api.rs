@@ -1,6 +1,6 @@
 use async_std;
 use async_std::fs;
-use async_std::net::UdpSocket;
+use async_std::net::{SocketAddr, UdpSocket};
 use async_std::prelude::*;
 use reqwest::tls::{Certificate, Identity};
 use reqwest::Client;
@@ -12,6 +12,7 @@ use std::time::{Duration, SystemTime};
 pub enum CombinedError {
     IoError(async_std::io::Error),
     ReqwestError(reqwest::Error),
+    SerdeJsonError(serde_json::Error),
 }
 
 impl From<async_std::io::Error> for CombinedError {
@@ -26,11 +27,17 @@ impl From<reqwest::Error> for CombinedError {
     }
 }
 
+impl From<serde_json::Error> for CombinedError {
+    fn from(e: serde_json::Error) -> Self {
+        Self::SerdeJsonError(e)
+    }
+}
+
 type Result<T> = std::result::Result<T, CombinedError>;
 
 #[derive(Debug, Deserialize)]
 #[allow(non_snake_case, dead_code)]
-struct CuData {
+pub struct CuData {
     #[serde(default)]
     CUIP: String,
     CUVersion: String,
@@ -73,21 +80,21 @@ struct CuData {
 
 #[derive(Serialize, Deserialize)]
 #[allow(non_snake_case, dead_code)]
-struct RegisterDeviceParams {
+pub struct RegisterDeviceParams {
     // Device model
-    device: String,
+    pub device: String,
     // Generated public key x509
-    deviceCertificate: String,
-    email: String,
+    pub deviceCertificate: String,
+    pub email: String,
     // password
-    key: String,
+    pub key: String,
     // Admin name
-    name: String,
+    pub name: String,
     #[serde(skip_serializing_if = "String::is_empty")]
-    password: String,
+    pub password: String,
     // seems to be unused
     #[serde(skip_serializing_if = "String::is_empty")]
-    pin: String,
+    pub pin: String,
 }
 
 async fn collect_responses(socket: UdpSocket) -> Result<Vec<CuData>> {
@@ -104,14 +111,14 @@ async fn collect_responses(socket: UdpSocket) -> Result<Vec<CuData>> {
             Ok(val) => val,
             Err(_) => break,
         };
-        let ret = match socket.recv_from(&mut buf).timeout(current_dur).await {
+        let (data_size, ip) = match socket.recv_from(&mut buf).timeout(current_dur).await {
             Ok(result) => result,
             Err(_) => break,
         }?;
-        println!("data_size: {}, ip: {}", ret.0, ret.1);
-        let str_data = str::from_utf8(&buf[0..ret.0]).unwrap();
+        println!("ip: {}", ip);
+        let str_data = str::from_utf8(&buf[0..data_size]).unwrap();
         let mut cudata: CuData = serde_json::from_str(str_data).unwrap();
-        cudata.CUIP = ret.1.to_string();
+        cudata.CUIP = ip.ip().to_string();
         println!("CUDATA: {:?}", cudata);
         results.push(cudata);
     }
@@ -146,4 +153,19 @@ pub async fn get_default_https_client() -> Result<reqwest::Client> {
         .add_root_certificate(cert)
         .identity(identity)
         .build()?)
+}
+
+pub async fn register_device(
+    client: &reqwest::Client,
+    ip: &String,
+    params: &RegisterDeviceParams,
+) -> Result<()> {
+    let req = client
+        .post("https://".to_owned() + ip + ":8443/commands")
+        .body("REGD".to_string() + &serde_json::to_string(params)?)
+        .send()
+        .await?;
+    let resp = req.text().await?;
+    println!("resp: {}", resp);
+    Ok(())
 }

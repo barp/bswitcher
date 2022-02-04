@@ -263,6 +263,7 @@ dependencies = [
  "async-net",
  "async-std",
  "async-stream",
+ "base64",
  "clap",
  "openssl",
  "reqwest",
