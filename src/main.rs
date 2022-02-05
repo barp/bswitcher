@@ -6,6 +6,7 @@ mod api;
 
 use crate::api::api::*;
 use crate::api::keygen::*;
+use crate::api::protocol::*;
 
 #[derive(Parser)]
 struct Cli {
@@ -22,6 +23,7 @@ enum Commands {
         email: String,
         password: String,
     },
+    SendCommand,
 }
 
 #[async_std::main]
@@ -67,6 +69,10 @@ async fn main() {
             let client = get_default_https_client().await.unwrap();
             let resp = register_device(&client, &real_ip, &params).await.unwrap();
             println!("resp: {:?}", resp);
+        }
+        Commands::SendCommand => {
+            let message = MessageWrapper::new(MessageType::Request, 1, "GETA".to_string());
+            println!("{:?}", create_prefixed_message(&message.serialize()))
         }
     }
 }

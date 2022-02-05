@@ -3,10 +3,10 @@ name = "bswitch"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
-name = "bswitch"
-path = "src/lib.rs"
-crate-type = ["cdylib"]
+# [lib]
+# name = "bswitch"
+# path = "src/lib.rs"
+# crate-type = ["cdylib"]
 
 [[bin]]
 name = "bswitch-control"
@@ -17,13 +17,14 @@ path = "src/main.rs"
 [dependencies]
 async-net = "0.1"
 async-stream = "0.3"
+async-native-tls = "0.4"
 serde = {version = "1.0", features = ["derive"]}
 serde_json = "1.0"
 reqwest = {version = "0.11.9", features = ["native-tls"]}
 clap = {version = "3.0", features = ["derive"]}
 openssl = "0.10"
 base64 = "0.13"
-pyo3 = { version = "0.15.1", features = ["extension-module"]}
+# pyo3 = { version = "0.15.1", features = ["extension-module"]}
 
 [dependencies.async-std]
 version = "1.10"

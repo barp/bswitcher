@@ -1,6 +1,7 @@
+use async_native_tls;
 use async_std;
 use async_std::fs;
-use async_std::net::UdpSocket;
+use async_std::net::{TcpStream, UdpSocket};
 use async_std::prelude::*;
 use reqwest::tls::Identity;
 use reqwest::Client;
@@ -17,6 +18,7 @@ pub struct ApiError {
 pub enum CombinedError {
     IoError(async_std::io::Error),
     ReqwestError(reqwest::Error),
+    AsyncTlsError(async_native_tls::Error),
     SerdeJsonError(serde_json::Error),
     ApiError(ApiError),
 }
@@ -36,6 +38,12 @@ impl From<reqwest::Error> for CombinedError {
 impl From<serde_json::Error> for CombinedError {
     fn from(e: serde_json::Error) -> Self {
         Self::SerdeJsonError(e)
+    }
+}
+
+impl From<async_native_tls::Error> for CombinedError {
+    fn from(e: async_native_tls::Error) -> Self {
+        Self::AsyncTlsError(e)
     }
 }
 
@@ -173,18 +181,40 @@ pub async fn discover_central_units(exit_on_first: bool) -> Result<Vec<CuData>> 
     Ok(collect_responses(socket, exit_on_first).await?)
 }
 
-async fn get_identity() -> Result<Identity> {
+async fn get_guest_identity() -> Result<Identity> {
     let contents = fs::read("./id.pfx").await?;
     Ok(reqwest::Identity::from_pkcs12_der(&contents, "1234")?)
 }
 
+// Client used for device registration, requires the guest certificate
 pub async fn get_default_https_client() -> Result<reqwest::Client> {
-    let identity = get_identity().await?;
+    let identity = get_guest_identity().await?;
     Ok(Client::builder()
         // .add_root_certificate(cert)
         .danger_accept_invalid_certs(true)
         .identity(identity)
         .build()?)
+}
+
+pub async fn get_device_identity(path: &str) -> Result<async_native_tls::Identity> {
+    let contents = fs::read(path).await?;
+    Ok(async_native_tls::Identity::from_pkcs12(&contents, "1234")?)
+}
+
+pub async fn get_async_api_stream(
+    server: String,
+    cert: async_native_tls::Identity,
+) -> async_native_tls::TlsStream<TcpStream> {
+    let stream = TcpStream::connect(server.to_string() + ":23789")
+        .await
+        .unwrap();
+    let stream = async_native_tls::TlsConnector::new()
+        .use_sni(true)
+        .identity(cert)
+        .connect(server, stream)
+        .await
+        .unwrap();
+    stream
 }
 
 pub async fn register_device(
