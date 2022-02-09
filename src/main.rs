@@ -29,6 +29,27 @@ enum Commands {
         certificate_path: String,
         message: String,
     },
+    GetAllUnits {
+        #[clap(long)]
+        ip: Option<String>,
+        certificate_path: String,
+    },
+    TurnOn {
+        #[clap(long)]
+        ip: Option<String>,
+        certificate_path: String,
+        #[clap(name = "type")]
+        unit_type: i32,
+        unit_id: i32,
+    },
+    TurnOff {
+        #[clap(long)]
+        ip: Option<String>,
+        certificate_path: String,
+        #[clap(name = "type")]
+        unit_type: i32,
+        unit_id: i32,
+    },
 }
 
 async fn get_cu_ip(ip: &Option<String>) -> Result<String> {
@@ -89,6 +110,58 @@ async fn main() {
             let mut client = CuClient::new(&ip, 23789, identity).await.unwrap();
             let resp = client.request(message).await.unwrap();
             println!("{}", resp);
+        }
+        Commands::GetAllUnits {
+            ip,
+            certificate_path,
+        } => {
+            let ip = get_cu_ip(ip).await.unwrap();
+            let identity = get_device_identity(certificate_path).await.unwrap();
+            let mut client = CuClient::new(&ip, 23789, identity).await.unwrap();
+            let resp = client.get_all().await.unwrap();
+            for zone in &resp.place.as_ref().unwrap().zones {
+                for item in &zone.items {
+                    println!("{:?}", item)
+                }
+            }
+        }
+        Commands::TurnOn {
+            ip,
+            certificate_path,
+            unit_type,
+            unit_id,
+        } => {
+            let ip = get_cu_ip(ip).await.unwrap();
+            let identity = get_device_identity(certificate_path).await.unwrap();
+            let mut client = CuClient::new(&ip, 23789, identity).await.unwrap();
+            let resp = client
+                .unit_operation(&UnitItemOperation {
+                    unit_id: *unit_id,
+                    unit_type: *unit_type,
+                    new_state: 100,
+                })
+                .await
+                .unwrap();
+            println!("{:?}", resp)
+        }
+        Commands::TurnOff {
+            ip,
+            certificate_path,
+            unit_type,
+            unit_id,
+        } => {
+            let ip = get_cu_ip(ip).await.unwrap();
+            let identity = get_device_identity(certificate_path).await.unwrap();
+            let mut client = CuClient::new(&ip, 23789, identity).await.unwrap();
+            let resp = client
+                .unit_operation(&UnitItemOperation {
+                    unit_id: *unit_id,
+                    unit_type: *unit_type,
+                    new_state: 0,
+                })
+                .await
+                .unwrap();
+            println!("{:?}", resp)
         }
     }
 }

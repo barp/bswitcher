@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 use std::str;
 use std::time::{Duration, SystemTime};
 
+use crate::CuClient;
+
 #[derive(Debug)]
 pub struct ApiError {
     pub status: OperationStatus,
@@ -57,11 +59,32 @@ impl From<str::Utf8Error> for CombinedError {
 pub type Result<T> = std::result::Result<T, CombinedError>;
 
 #[derive(Debug, Deserialize)]
+pub struct UnitItem {
+    pub name: String,
+    #[serde(rename = "unitId")]
+    pub unit_id: i32,
+    pub value: i32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Zone {
+    pub id: i32,
+    pub name: String,
+    pub items: Vec<UnitItem>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Place {
+    pub zones: Vec<Zone>,
+}
+
+#[derive(Debug, Deserialize)]
 #[allow(non_snake_case, dead_code)]
 pub struct CuData {
     #[serde(default)]
     pub CUIP: String,
     CUVersion: String,
+    #[serde(default)]
     NoUsers: bool,
     #[serde(default)]
     apVer: i32,
@@ -77,7 +100,7 @@ pub struct CuData {
     mac: String,
     name: String,
     #[serde(default)]
-    pin: String,
+    pin: i32,
     #[serde(default)]
     pnpe: bool,
     port: i32,
@@ -86,17 +109,17 @@ pub struct CuData {
     timeStr: String,
     timeZone: i32,
     timeZoneName: String,
-    // @Expose
-    // public EnabledFeatures features;
-    // @Expose
-    // public SwitchBeePlace place;
-    // @Expose
-    // public RemoteConnectionType rct;
-    // @Expose
-    // public Role role;
-    // private HashMap<Integer, TimerItem> timersMap;
-    // private Vector<UnitItem> unitItems;
-    // private HashMap<Integer, UnitItem> unitsMap;
+    pub place: Option<Place>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UnitItemOperation {
+    #[serde(rename = "newState")]
+    pub new_state: i32,
+    #[serde(rename = "type")]
+    pub unit_type: i32,
+    #[serde(rename = "unitId")]
+    pub unit_id: i32,
 }
 
 #[derive(Serialize)]
@@ -232,4 +255,23 @@ pub async fn register_device(
         }));
     }
     Ok(resp)
+}
+
+impl CuClient {
+    pub async fn get_all(&mut self) -> Result<CuData> {
+        let resp = self.request("GETA").await?;
+        Ok(serde_json::from_str::<CuData>(&resp)?)
+    }
+    pub async fn unit_operation(&mut self, op: &UnitItemOperation) -> Result<CuStatus> {
+        let resp = self
+            .request(&("UNOP".to_string() + &serde_json::to_string(op)?.to_owned()))
+            .await?;
+        let resp: CuStatus = serde_json::from_str(&resp)?;
+        if resp.status != OperationStatus::OK {
+            return Err(CombinedError::ApiError(ApiError {
+                status: resp.status,
+            }));
+        }
+        Ok(resp)
+    }
 }
