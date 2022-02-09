@@ -47,7 +47,7 @@ impl From<async_native_tls::Error> for CombinedError {
     }
 }
 
-type Result<T> = std::result::Result<T, CombinedError>;
+pub type Result<T> = std::result::Result<T, CombinedError>;
 
 #[derive(Debug, Deserialize)]
 #[allow(non_snake_case, dead_code)]
@@ -158,11 +158,9 @@ async fn collect_responses(socket: UdpSocket, exit_on_first: bool) -> Result<Vec
             Ok(result) => result,
             Err(_) => break,
         }?;
-        println!("ip: {}", ip);
         let str_data = str::from_utf8(&buf[0..data_size]).unwrap();
         let mut cudata: CuData = serde_json::from_str(str_data).unwrap();
         cudata.CUIP = ip.ip().to_string();
-        println!("CUDATA: {:?}", cudata);
         results.push(cudata);
         if exit_on_first {
             break;
@@ -209,6 +207,7 @@ pub async fn get_async_api_stream(
         .await
         .unwrap();
     let stream = async_native_tls::TlsConnector::new()
+        .danger_accept_invalid_certs(true)
         .use_sni(true)
         .identity(cert)
         .connect(server, stream)

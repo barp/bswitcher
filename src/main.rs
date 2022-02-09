@@ -1,6 +1,8 @@
 use async_std::fs;
+use async_std::prelude::*;
 use base64;
 use clap::{Parser, Subcommand};
+use hexplay::HexViewBuilder;
 
 mod api;
 
@@ -23,7 +25,24 @@ enum Commands {
         email: String,
         password: String,
     },
-    SendCommand,
+    SendCommand {
+        #[clap(long)]
+        ip: Option<String>,
+        certificate_path: String,
+    },
+}
+
+async fn get_cu_ip(ip: &Option<String>) -> Result<String> {
+    Ok(match ip {
+        Some(p) => p.to_string(),
+        None => {
+            let cu = discover_central_units(true).await?;
+            if cu.len() < 1 {
+                panic!("no central unit found")
+            }
+            cu[0].CUIP.to_owned()
+        }
+    })
 }
 
 #[async_std::main]
@@ -39,16 +58,7 @@ async fn main() {
             email,
             password,
         } => {
-            let real_ip = match ip {
-                Some(p) => p.to_string(),
-                None => {
-                    let cu = discover_central_units(true).await.unwrap();
-                    if cu.len() < 1 {
-                        panic!("no central unit found")
-                    }
-                    cu[0].CUIP.to_owned()
-                }
-            };
+            let real_ip = get_cu_ip(ip).await.unwrap();
             let (pk, cert) = generate_keypair("barp12@gmail.com");
             let params = RegisterDeviceParams {
                 name: email.to_string(),
@@ -59,6 +69,9 @@ async fn main() {
                 device: "android_REL_HA".to_string(),
                 deviceCertificate: base64::encode_config(cert.to_der().unwrap(), base64::URL_SAFE),
             };
+            let client = get_default_https_client().await.unwrap();
+            let resp = register_device(&client, &real_ip, &params).await.unwrap();
+            println!("resp: {:?}", resp);
             println!("saving private key in device.key");
             let pkcs12cert = openssl::pkcs12::Pkcs12::builder()
                 .build("1234", "device cert", &pk, &cert)
@@ -66,13 +79,29 @@ async fn main() {
             fs::write("./device.key", pkcs12cert.to_der().unwrap())
                 .await
                 .unwrap();
-            let client = get_default_https_client().await.unwrap();
-            let resp = register_device(&client, &real_ip, &params).await.unwrap();
-            println!("resp: {:?}", resp);
         }
-        Commands::SendCommand => {
+        Commands::SendCommand {
+            ip,
+            certificate_path,
+        } => {
+            let ip = get_cu_ip(ip).await.unwrap();
             let message = MessageWrapper::new(MessageType::Request, 1, "GETA".to_string());
-            println!("{:?}", create_prefixed_message(&message.serialize()))
+            let message = create_prefixed_message(&message.serialize());
+            let view = HexViewBuilder::new(&message)
+                .address_offset(0)
+                .row_width(16)
+                .finish();
+            println!("{}", view);
+            let id = get_device_identity(certificate_path).await.unwrap();
+            let mut stream = get_async_api_stream(ip, id).await;
+            stream.write_all(&message).await.unwrap();
+            let mut buf = [0; 100];
+            stream.read(&mut buf).await.unwrap();
+            let view = HexViewBuilder::new(&buf)
+                .address_offset(0)
+                .row_width(16)
+                .finish();
+            println!("{}", view);
         }
     }
 }
