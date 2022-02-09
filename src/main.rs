@@ -1,8 +1,6 @@
 use async_std::fs;
-use async_std::prelude::*;
 use base64;
 use clap::{Parser, Subcommand};
-use hexplay::HexViewBuilder;
 
 mod api;
 
@@ -87,24 +85,10 @@ async fn main() {
             message,
         } => {
             let ip = get_cu_ip(ip).await.unwrap();
-            let message = MessageWrapper::new(MessageType::Request, 1, message.to_string());
-            let message = create_prefixed_message(&message.serialize());
-            let view = HexViewBuilder::new(&message)
-                .address_offset(0)
-                .row_width(16)
-                .finish();
-            println!("{}", view);
-            let id = get_device_identity(certificate_path).await.unwrap();
-            let mut stream = get_async_api_stream(ip, id).await;
-            stream.write_all(&message).await.unwrap();
-            let buf = read_prefixed_message(&mut stream).await.unwrap();
-            let view = HexViewBuilder::new(&buf)
-                .address_offset(0)
-                .row_width(16)
-                .finish();
-            println!("{}", view);
-            let response = MessageWrapper::deserialize(&buf).unwrap();
-            println!("{}", response.message());
+            let identity = get_device_identity(certificate_path).await.unwrap();
+            let mut client = CuClient::new(&ip, 23789, identity).await.unwrap();
+            let resp = client.request(message).await.unwrap();
+            println!("{}", resp);
         }
     }
 }

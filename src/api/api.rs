@@ -1,7 +1,7 @@
 use async_native_tls;
 use async_std;
 use async_std::fs;
-use async_std::net::{TcpStream, UdpSocket};
+use async_std::net::UdpSocket;
 use async_std::prelude::*;
 use reqwest::tls::Identity;
 use reqwest::Client;
@@ -204,23 +204,6 @@ pub async fn get_default_https_client() -> Result<reqwest::Client> {
 pub async fn get_device_identity(path: &str) -> Result<async_native_tls::Identity> {
     let contents = fs::read(path).await?;
     Ok(async_native_tls::Identity::from_pkcs12(&contents, "1234")?)
-}
-
-pub async fn get_async_api_stream(
-    server: String,
-    cert: async_native_tls::Identity,
-) -> async_native_tls::TlsStream<TcpStream> {
-    let stream = TcpStream::connect(server.to_string() + ":23789")
-        .await
-        .unwrap();
-    let stream = async_native_tls::TlsConnector::new()
-        .danger_accept_invalid_certs(true)
-        .use_sni(true)
-        .identity(cert)
-        .connect(server, stream)
-        .await
-        .unwrap();
-    stream
 }
 
 pub async fn register_device(

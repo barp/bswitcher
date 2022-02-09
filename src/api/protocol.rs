@@ -5,7 +5,7 @@ use std::str;
 use crate::api::api::*;
 
 #[derive(Clone, Copy, Debug)]
-pub enum MessageType {
+enum MessageType {
     Request = 1,
     Response = 2,
     Notification = 3,
@@ -25,7 +25,7 @@ impl TryFrom<u8> for MessageType {
 }
 
 #[derive(Debug)]
-pub struct MessageWrapper {
+struct MessageWrapper {
     message_type: MessageType,
     priority: u8,
     message_id: u32,
@@ -33,7 +33,7 @@ pub struct MessageWrapper {
 }
 
 impl MessageWrapper {
-    pub fn new(message_type: MessageType, message_id: u32, message: String) -> MessageWrapper {
+    fn new(message_type: MessageType, message_id: u32, message: String) -> MessageWrapper {
         MessageWrapper {
             message_type,
             priority: 0,
@@ -41,7 +41,7 @@ impl MessageWrapper {
             message,
         }
     }
-    pub fn serialize(&self) -> Vec<u8> {
+    fn serialize(&self) -> Vec<u8> {
         let mut result: Vec<u8> = Vec::<u8>::with_capacity(6 + self.message.len());
         result.push(self.message_type as u8);
         result.push(self.priority);
@@ -50,7 +50,7 @@ impl MessageWrapper {
         result
     }
 
-    pub fn deserialize(data: &Vec<u8>) -> Result<MessageWrapper> {
+    fn deserialize(data: &Vec<u8>) -> Result<MessageWrapper> {
         Ok(MessageWrapper {
             message_type: data[0].try_into().unwrap(),
             priority: data[1],
@@ -58,37 +58,66 @@ impl MessageWrapper {
             message: str::from_utf8(&data[6..])?.to_string(),
         })
     }
+}
 
-    pub fn message(&self) -> &String {
-        &self.message
+pub struct CuClient {
+    stream: async_native_tls::TlsStream<TcpStream>,
+    message_id: u32,
+}
+
+impl CuClient {
+    pub async fn new(ip: &str, port: u32, identity: async_native_tls::Identity) -> Result<Self> {
+        let stream = TcpStream::connect(ip.to_string() + ":" + &port.to_string()).await?;
+        let stream = async_native_tls::TlsConnector::new()
+            .danger_accept_invalid_certs(true)
+            .use_sni(true)
+            .identity(identity)
+            .connect(ip, stream)
+            .await
+            .unwrap();
+        Ok(CuClient {
+            stream,
+            message_id: 1,
+        })
     }
-}
 
-pub fn create_prefixed_message(message: &Vec<u8>) -> Vec<u8> {
-    let mut result = Vec::<u8>::with_capacity(8 + message.len());
-    // Magic code
-    result.push(127);
-    result.push(54);
-    result.push(60);
-    result.push(162);
+    fn create_prefixed_message(message: &Vec<u8>) -> Vec<u8> {
+        let mut result = Vec::<u8>::with_capacity(8 + message.len());
+        // Magic code
+        result.push(127);
+        result.push(54);
+        result.push(60);
+        result.push(162);
 
-    result.extend_from_slice(&(message.len() as u32).to_le_bytes());
-    result.extend(message);
+        result.extend_from_slice(&(message.len() as u32).to_le_bytes());
+        result.extend(message);
 
-    result
-}
+        result
+    }
 
-pub async fn read_prefixed_message(
-    stream: &mut async_native_tls::TlsStream<TcpStream>,
-) -> Result<Vec<u8>> {
-    let mut _magic = [0; 4];
-    stream.read_exact(&mut _magic).await?;
+    async fn read_prefixed_message(&mut self) -> Result<Vec<u8>> {
+        let mut _magic = [0; 4];
+        self.stream.read_exact(&mut _magic).await?;
 
-    let mut size = [0; 4];
-    stream.read_exact(&mut size).await?;
-    let size = u32::from_le_bytes(size);
+        let mut size = [0; 4];
+        self.stream.read_exact(&mut size).await?;
+        let size = u32::from_le_bytes(size);
 
-    let mut buffer = Vec::with_capacity(size.try_into().unwrap());
-    stream.take(size.into()).read_to_end(&mut buffer).await?;
-    Ok(buffer)
+        let size: usize = size.try_into().unwrap();
+        let mut buffer = Vec::with_capacity(size);
+        unsafe { buffer.set_len(size) }
+        self.stream.read_exact(&mut buffer).await?;
+        Ok(buffer)
+    }
+
+    pub async fn request(&mut self, request: &str) -> Result<String> {
+        let message =
+            MessageWrapper::new(MessageType::Request, self.message_id, request.to_string());
+        let message = Self::create_prefixed_message(&message.serialize());
+        self.stream.write_all(&message).await?;
+        self.message_id += 1;
+        let buf = self.read_prefixed_message().await?;
+        let response = MessageWrapper::deserialize(&buf).unwrap();
+        Ok(response.message)
+    }
 }
