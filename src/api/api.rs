@@ -21,6 +21,7 @@ pub enum CombinedError {
     AsyncTlsError(async_native_tls::Error),
     SerdeJsonError(serde_json::Error),
     ApiError(ApiError),
+    Utf8Error(str::Utf8Error),
 }
 
 impl From<async_std::io::Error> for CombinedError {
@@ -44,6 +45,12 @@ impl From<serde_json::Error> for CombinedError {
 impl From<async_native_tls::Error> for CombinedError {
     fn from(e: async_native_tls::Error) -> Self {
         Self::AsyncTlsError(e)
+    }
+}
+
+impl From<str::Utf8Error> for CombinedError {
+    fn from(e: str::Utf8Error) -> Self {
+        Self::Utf8Error(e)
     }
 }
 

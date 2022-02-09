@@ -29,6 +29,7 @@ enum Commands {
         #[clap(long)]
         ip: Option<String>,
         certificate_path: String,
+        message: String,
     },
 }
 
@@ -83,9 +84,10 @@ async fn main() {
         Commands::SendCommand {
             ip,
             certificate_path,
+            message,
         } => {
             let ip = get_cu_ip(ip).await.unwrap();
-            let message = MessageWrapper::new(MessageType::Request, 1, "GETA".to_string());
+            let message = MessageWrapper::new(MessageType::Request, 1, message.to_string());
             let message = create_prefixed_message(&message.serialize());
             let view = HexViewBuilder::new(&message)
                 .address_offset(0)
@@ -95,13 +97,14 @@ async fn main() {
             let id = get_device_identity(certificate_path).await.unwrap();
             let mut stream = get_async_api_stream(ip, id).await;
             stream.write_all(&message).await.unwrap();
-            let mut buf = [0; 100];
-            stream.read(&mut buf).await.unwrap();
+            let buf = read_prefixed_message(&mut stream).await.unwrap();
             let view = HexViewBuilder::new(&buf)
                 .address_offset(0)
                 .row_width(16)
                 .finish();
             println!("{}", view);
+            let response = MessageWrapper::deserialize(&buf).unwrap();
+            println!("{}", response.message());
         }
     }
 }
