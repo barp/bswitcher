@@ -84,6 +84,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.github_token }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./bswitch_python-${{ github.ref_name }}.tar.gz
+        asset_path: ./bswitch_python-${{ steps.get_version.outputs.VERSION }}.tar.gz
         asset_name: bswitch_python-${{ steps.get_version.outputs.VERSION }}.tar.gz
         asset_content_type: application/tar+gzip
