@@ -21,6 +21,21 @@ jobs:
       run: |
         cd python
         poetry version $(git describe --tags --abbrev=0)
+    - name: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+    - uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: 'toml-cli'
+    - run: |
+        TEMP_FILE="$(mktemp)"
+        cd python
+        toml set Cargo.toml package.version "$(git describe --tags --abbrev=0)" > "$TEMP_FILE"
+        mv "$TEMP_FILE" Cargo.toml
+      shell: bash
     - name: maturin-action
       uses: messense/maturin-action@v1
       with:
