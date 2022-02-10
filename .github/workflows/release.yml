@@ -1,7 +1,7 @@
 name: Release workflow
-on:
-  release:
-    types: [created]
+on: [push]
+  # release:
+  #   types: [created]
 
 jobs:
   Release:
@@ -31,3 +31,32 @@ jobs:
       with:
         name: sdist
         path: ./target/wheels/
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - name: Create release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.github_token }}
+      with:
+        tag_name: ${{ github.run_number }}
+        release_name: Release ${{ github.run_number }}
+        body: New release for ${{ github.sha }}.
+        draft: false
+        prerelease: false
+    - name: Download artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: sdist
+    - name: Upload release asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.github_token }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./*.tar.gz
+        asset_name: bswitch_python.tar.gz
+        asset_content_type: application/tar+gzip
