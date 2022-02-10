@@ -10,4 +10,4 @@ jobs:
       with:
         maturin-version: latest
         command: sdist
-        args: -m python
+        args: -m python/Cargo.toml
