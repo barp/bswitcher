@@ -1,0 +1,11 @@
+name: Release workflow
+on: [push]
+jobs:
+  Release:
+    runs-on: ubuntu-latest
+    steps:
+    - name: maturin-action
+      uses: messense/maturin-action@v1
+      with:
+        maturin-version: latest
+        command: sdist
