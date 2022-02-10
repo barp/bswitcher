@@ -21,7 +21,7 @@ jobs:
       run: |
         cd python
         poetry version $(git describe --tags --abbrev=0)
-    - name: actions-rs/toolchain@v1
+    - uses: actions-rs/toolchain@v1
       with:
         profile: minimal
         toolchain: stable
