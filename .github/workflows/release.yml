@@ -1,0 +1,13 @@
+name: Release workflow
+on: [push]
+jobs:
+  Release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: maturin-action
+      uses: messense/maturin-action@v1
+      with:
+        maturin-version: latest
+        command: sdist
+        args: -m python/Cargo.toml
