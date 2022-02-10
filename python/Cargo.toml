@@ -6,12 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-name = "bswitch"
+name = "pybswitch"
 path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.15.1", features = ["extension-module"]}
+bswitch = { path = "../lib" }
 
 [build-dependencies]
 pyo3-build-config = "^0.14"

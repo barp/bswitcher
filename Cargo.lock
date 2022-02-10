@@ -286,6 +286,7 @@ dependencies = [
 name = "bswitch-python"
 version = "0.1.0"
 dependencies = [
+ "bswitch",
  "pyo3",
  "pyo3-build-config 0.14.5",
 ]
