@@ -17,6 +17,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install poetry
     - name: tag
+      working-directory: ./python
       run: |
         poetry version $(git describe --tags --abbrev=0)
     - name: maturin-action
