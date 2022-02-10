@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::str;
 use std::time::{Duration, SystemTime};
 
-use crate::CuClient;
+use crate::protocol::CuClient;
 
 #[derive(Debug)]
 pub struct ApiError {
@@ -64,6 +64,8 @@ pub struct UnitItem {
     #[serde(rename = "unitId")]
     pub unit_id: i32,
     pub value: i32,
+    #[serde(rename = "type")]
+    pub unit_type: i32,
 }
 
 #[derive(Debug, Deserialize)]

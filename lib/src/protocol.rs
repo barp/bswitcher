@@ -2,7 +2,7 @@ use async_std::net::TcpStream;
 use async_std::prelude::*;
 use std::str;
 
-use crate::api::api::*;
+use crate::api::*;
 
 #[derive(Clone, Copy, Debug)]
 enum MessageType {

@@ -2,11 +2,9 @@ use async_std::fs;
 use base64;
 use clap::{Parser, Subcommand};
 
-mod api;
-
-use crate::api::api::*;
-use crate::api::keygen::*;
-use crate::api::protocol::*;
+use bswitch::api::*;
+use bswitch::keygen::*;
+use bswitch::protocol::*;
 
 #[derive(Parser)]
 struct Cli {
