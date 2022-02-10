@@ -26,3 +26,8 @@ jobs:
         maturin-version: latest
         command: sdist
         args: -m python/Cargo.toml
+    - name: Archive Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: sdist
+        path: ./target/wheels/
