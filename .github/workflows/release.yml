@@ -20,7 +20,8 @@ jobs:
     - name: tag
       run: |
         cd python
-        poetry version ${"$(git describe --tags --abbrev=0)":1}
+        VERSION=$(git describe --tags --abbrev=0)
+        poetry version ${VERSION:1}
     - uses: actions-rs/toolchain@v1
       with:
         profile: minimal
@@ -32,8 +33,9 @@ jobs:
         args: 'toml-cli'
     - run: |
         TEMP_FILE="$(mktemp)"
+        VERSION=$(git describe --tags --abbrev=0)
         cd python
-        toml set Cargo.toml package.version ${"$(git describe --tags --abbrev=0)":1} > "$TEMP_FILE"
+        toml set Cargo.toml package.version ${VERSION:1} > "$TEMP_FILE"
         mv "$TEMP_FILE" Cargo.toml
       shell: bash
     - name: maturin-action
