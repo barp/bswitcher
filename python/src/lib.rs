@@ -23,10 +23,15 @@ pub struct PyCuClient(Arc<Mutex<CuClient>>);
 #[pyclass]
 #[derive(Clone)]
 pub struct UnitItem {
+    #[pyo3(get)]
     pub zone: String,
+    #[pyo3(get)]
     pub name: String,
+    #[pyo3(get)]
     pub unit_id: i32,
+    #[pyo3(get)]
     pub value: i32,
+    #[pyo3(get)]
     pub unit_type: i32,
 }
 
