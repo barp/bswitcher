@@ -277,6 +277,7 @@ dependencies = [
  "async-std",
  "async-stream",
  "openssl",
+ "pyo3",
  "reqwest",
  "serde",
  "serde_json",

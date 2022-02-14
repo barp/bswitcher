@@ -11,6 +11,11 @@ use std::time::{Duration, SystemTime};
 
 use crate::protocol::CuClient;
 
+#[cfg(feature = "python")]
+use pyo3::exceptions::PyOSError;
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 #[derive(Debug)]
 pub struct ApiError {
     pub status: OperationStatus,
@@ -24,6 +29,16 @@ pub enum CombinedError {
     SerdeJsonError(serde_json::Error),
     ApiError(ApiError),
     Utf8Error(str::Utf8Error),
+}
+
+#[cfg(feature = "python")]
+impl From<CombinedError> for PyErr {
+    fn from(err: CombinedError) -> Self {
+        match err {
+            CombinedError::AsyncTlsError(err) => PyOSError::new_err(err.to_string()),
+            _ => PyOSError::new_err("rust error"),
+        }
+    }
 }
 
 impl From<async_std::io::Error> for CombinedError {
@@ -82,6 +97,7 @@ pub struct Place {
 
 #[derive(Debug, Deserialize)]
 #[allow(non_snake_case, dead_code)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct CuData {
     #[serde(default)]
     pub CUIP: String,
