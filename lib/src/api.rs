@@ -73,7 +73,7 @@ impl From<str::Utf8Error> for CombinedError {
 
 pub type Result<T> = std::result::Result<T, CombinedError>;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct UnitItem {
     pub name: String,
     #[serde(rename = "unitId")]
@@ -128,6 +128,15 @@ pub struct CuData {
     timeZone: i32,
     timeZoneName: String,
     pub place: Option<Place>,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl CuData {
+    #[getter(CUIP)]
+    fn py_cuip(&self) -> String {
+        self.CUIP.to_string()
+    }
 }
 
 #[derive(Debug, Serialize)]
