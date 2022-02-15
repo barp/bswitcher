@@ -137,6 +137,10 @@ impl CuData {
     fn py_cuip(&self) -> String {
         self.CUIP.to_string()
     }
+
+    pub fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("CuData<CUIP: {}>", self.CUIP))
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -198,7 +202,7 @@ pub struct RegisterDeviceResponse {
 }
 
 async fn collect_responses(socket: UdpSocket, exit_on_first: bool) -> Result<Vec<CuData>> {
-    let mut buf: [u8; 100000] = [0; 100000];
+    let mut buf: [u8; 10000] = [0; 10000];
 
     let mut results: Vec<CuData> = Vec::new();
 

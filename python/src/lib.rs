@@ -1,6 +1,7 @@
 use async_native_tls;
 use async_std::sync::{Arc, Mutex};
 use pyo3::prelude::*;
+use pyo3::wrap_pyfunction;
 
 use bswitch::api::{discover_central_units, CombinedError, UnitItemOperation};
 use bswitch::protocol::*;
