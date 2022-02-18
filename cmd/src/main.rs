@@ -85,7 +85,7 @@ async fn main() {
                 password: "".to_string(),
                 pin: "".to_string(),
                 device: "android_REL_HA".to_string(),
-                deviceCertificate: base64::encode_config(cert.to_der().unwrap(), base64::URL_SAFE),
+                device_certificate: base64::encode_config(cert.to_der().unwrap(), base64::URL_SAFE),
             };
             let client = get_default_https_client().await.unwrap();
             let resp = register_device(&client, &real_ip, &params).await.unwrap();
