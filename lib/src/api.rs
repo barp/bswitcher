@@ -6,6 +6,7 @@ use async_std::prelude::*;
 use reqwest::tls::Identity;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::fmt::{self, Debug};
 use std::str;
 use std::time::{Duration, SystemTime};
 
@@ -154,12 +155,13 @@ pub struct UnitItemOperation {
 }
 
 #[derive(Serialize)]
-#[allow(non_snake_case, dead_code)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct RegisterDeviceParams {
     // Device model
     pub device: String,
     // Generated public key x509
-    pub deviceCertificate: String,
+    #[serde(rename = "deviceCertificate")]
+    pub device_certificate: String,
     pub email: String,
     // password
     pub key: String,
@@ -168,6 +170,68 @@ pub struct RegisterDeviceParams {
     pub password: String,
     // seems to be unused
     pub pin: String,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl RegisterDeviceParams {
+    #[setter(device)]
+    fn py_device_set(&mut self, device: String) -> () {
+        self.device = device
+    }
+    #[getter(device)]
+    fn py_device(&self) -> String {
+        self.device.to_owned()
+    }
+    #[setter(device_certificate)]
+    fn py_device_certificate_set(&mut self, cert: String) -> () {
+        self.device_certificate = cert
+    }
+    #[getter(device_certificate)]
+    fn py_device_certificate(&self) -> String {
+        self.device_certificate.to_owned()
+    }
+
+    #[setter(email)]
+    fn py_email_set(&mut self, email: String) -> () {
+        self.email = email
+    }
+    #[getter(email)]
+    fn py_email(&self) -> String {
+        self.email.to_owned()
+    }
+    #[setter(key)]
+    fn py_key_set(&mut self, key: String) -> () {
+        self.key = key
+    }
+    #[getter(key)]
+    fn py_key(&self) -> String {
+        self.key.to_owned()
+    }
+    #[setter(name)]
+    fn py_name_set(&mut self, name: String) -> () {
+        self.name = name
+    }
+    #[getter(name)]
+    fn py_name(&self) -> String {
+        self.name.to_owned()
+    }
+    #[setter(password)]
+    fn py_password_set(&mut self, password: String) -> () {
+        self.password = password
+    }
+    #[getter(password)]
+    fn py_password(&self) -> String {
+        self.password.to_owned()
+    }
+    #[setter(pin)]
+    fn py_pin_set(&mut self, pin: String) -> () {
+        self.pin = pin
+    }
+    #[getter(password)]
+    fn py_pin(&self) -> String {
+        self.pin.to_owned()
+    }
 }
 
 #[derive(Deserialize, PartialEq, Debug)]
@@ -190,15 +254,31 @@ pub enum OperationStatus {
     Cancelled,
 }
 
+impl fmt::Display for OperationStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Debug::fmt(self, f)
+    }
+}
+
 #[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct CuStatus {
     pub status: OperationStatus,
 }
 
 #[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "python", pyclass)]
 pub struct RegisterDeviceResponse {
     #[serde(flatten)]
     pub status: CuStatus,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl RegisterDeviceResponse {
+    fn py_status(&self) -> String {
+        self.status.status.to_string()
+    }
 }
 
 async fn collect_responses(socket: UdpSocket, exit_on_first: bool) -> Result<Vec<CuData>> {

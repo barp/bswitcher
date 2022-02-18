@@ -3,7 +3,9 @@ use async_std::sync::{Arc, Mutex};
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 
-use bswitch::api::{discover_central_units, CombinedError, UnitItemOperation};
+use bswitch::api::{
+    discover_central_units, CombinedError, RegisterDeviceParams, UnitItemOperation,
+};
 use bswitch::protocol::*;
 
 #[pyclass(name = "CuClient")]
@@ -141,6 +143,7 @@ fn discover_central_unit(py: Python) -> PyResult<&PyAny> {
 #[pymodule]
 fn pybswitch(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyCuClient>()?;
+    m.add_class::<RegisterDeviceParams>()?;
     m.add_function(wrap_pyfunction!(discover_central_unit, m)?)?;
     Ok(())
 }
