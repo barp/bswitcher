@@ -6,6 +6,7 @@ pub enum BksError {
     IoError(std::io::Error),
     FormatError(BksFormatError),
     Utf8Error(std::string::FromUtf8Error),
+    SignatureError(KeystoreSignatureError),
 }
 
 impl From<std::io::Error> for BksError {
@@ -23,6 +24,12 @@ impl From<BksFormatError> for BksError {
 impl From<std::string::FromUtf8Error> for BksError {
     fn from(e: std::string::FromUtf8Error) -> Self {
         Self::Utf8Error(e)
+    }
+}
+
+impl From<KeystoreSignatureError> for BksError {
+    fn from(e: KeystoreSignatureError) -> Self {
+        Self::SignatureError(e)
     }
 }
 
@@ -54,5 +61,20 @@ impl Error for BksFormatError {
 
     fn cause(&self) -> Option<&dyn Error> {
         self.source()
+    }
+}
+
+#[derive(Debug)]
+pub struct KeystoreSignatureError {
+    signature: Vec<u8>,
+    expected: Vec<u8>,
+}
+
+impl KeystoreSignatureError {
+    pub fn new(expected: Vec<u8>, signature: Vec<u8>) -> Self {
+        Self {
+            expected,
+            signature,
+        }
     }
 }

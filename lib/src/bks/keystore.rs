@@ -1,6 +1,12 @@
 use async_std::io::Read;
 use async_std::prelude::*;
+use encoding::all::UTF_16BE;
+use encoding::{EncoderTrap, Encoding};
+use hmac::{Hmac, Mac};
+use sha1::{Digest, Sha1};
 use std::collections::HashMap;
+use std::pin::Pin;
+use std::task::Poll;
 
 use crate::bks::errors;
 
@@ -101,6 +107,31 @@ pub struct BksKeyStore {
     version: u32,
     store_type: String,
     entries: HashMap<String, BksEntry>,
+}
+
+struct HMACReader<'a, T: Read> {
+    inner: &'a mut T,
+    hmac: Hmac<Sha1>,
+}
+
+impl<'a, T: Read + Unpin> Read for HMACReader<'a, T> {
+    fn poll_read(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut [u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        let inner = Pin::into_inner(self);
+        match T::poll_read(Pin::new(&mut inner.inner), cx, buf) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(result) => match result {
+                Err(e) => Poll::Ready(Err(e)),
+                Ok(size) => {
+                    inner.hmac.update(&buf[0..size]);
+                    Poll::Ready(Ok(size))
+                }
+            },
+        }
+    }
 }
 
 async fn read_u64<T>(reader: &mut T) -> Result<u64, errors::BksError>
@@ -209,6 +240,37 @@ where
     Ok(entries)
 }
 
+fn rfc7292_derieve_key<T: Mac>(
+    purpose: u8,
+    password: String,
+    salt: Vec<u8>,
+    iteration_count: u32,
+    key_size: u32,
+) {
+    let mut password_bytes = UTF_16BE
+        .encode(&password.to_string(), EncoderTrap::Strict)
+        .unwrap();
+    password_bytes.extend([0, 0].iter());
+    let u = T::output_size();
+    let v = 512 / 8; // Sha1 block size, need to this for every sha algorithm
+}
+
+async fn read_bks_entries_hmac<T>(
+    reader: &mut T,
+) -> Result<(HashMap<String, BksEntry>, Vec<u8>), errors::BksError>
+where
+    T: Read + Unpin,
+{
+    let mut hmac_reader = HMACReader {
+        inner: reader,
+        hmac: Hmac::new_from_slice(b"test").unwrap(),
+    };
+    Ok((
+        read_bks_entries(&mut hmac_reader).await?,
+        hmac_reader.hmac.finalize().into_bytes().to_vec(),
+    ))
+}
+
 impl BksKeyStore {
     pub async fn load<T>(reader: &mut T) -> Result<BksKeyStore, errors::BksError>
     where
@@ -224,7 +286,18 @@ impl BksKeyStore {
         }
         let _salt = read_data(reader).await?;
         let _iteration_count = read_u32(reader).await?;
-        let entries = read_bks_entries(reader).await?;
+        let (entries, calculated_hmac) = read_bks_entries_hmac(reader).await?;
+        let mut store_hmac = vec![0; Sha1::output_size()];
+        reader.read_exact(&mut store_hmac).await?;
+        println!(
+            "calculated: {:?}, stored: {:?}",
+            calculated_hmac, store_hmac
+        );
+        if store_hmac != calculated_hmac {
+            return Err(errors::BksError::SignatureError(
+                errors::KeystoreSignatureError::new(store_hmac, calculated_hmac),
+            ));
+        }
         Ok(BksKeyStore {
             version,
             store_type,
