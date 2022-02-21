@@ -3,6 +3,7 @@ use base64;
 use clap::{Parser, Subcommand};
 
 use bswitch::api::*;
+use bswitch::bks::keystore::*;
 use bswitch::keygen::*;
 use bswitch::protocol::*;
 
@@ -47,6 +48,9 @@ enum Commands {
         #[clap(name = "type")]
         unit_type: i32,
         unit_id: i32,
+    },
+    GetGuestKey {
+        apk_path: String,
     },
 }
 
@@ -160,6 +164,12 @@ async fn main() {
                 .await
                 .unwrap();
             println!("{:?}", resp)
+        }
+        Commands::GetGuestKey { apk_path } => {
+            let bks = BksKeyStore::load(&mut fs::File::open(apk_path).await.unwrap())
+                .await
+                .unwrap();
+            println!("{:?}", bks)
         }
     }
 }

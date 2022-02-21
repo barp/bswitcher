@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use crate::bks::errors;
 
+#[derive(Debug)]
 pub struct BksTrustedCertEntry {
     cert_type: String,
     cert_data: Vec<u8>,
@@ -23,6 +24,7 @@ impl BksTrustedCertEntry {
     }
 }
 
+#[derive(Debug)]
 pub struct BksKeyEntry {
     key_type: u8,
     key_format: String,
@@ -48,6 +50,7 @@ impl BksKeyEntry {
     }
 }
 
+#[derive(Debug)]
 pub struct BksSecretEntry {
     secret_data: Vec<u8>,
 }
@@ -62,6 +65,7 @@ impl BksSecretEntry {
     }
 }
 
+#[derive(Debug)]
 pub struct BksSealedEntry {
     sealed_data: Vec<u8>,
 }
@@ -76,6 +80,7 @@ impl BksSealedEntry {
     }
 }
 
+#[derive(Debug)]
 pub enum BksEntryValue {
     CertEntry(BksTrustedCertEntry),
     KeyEntry(BksKeyEntry),
@@ -83,6 +88,7 @@ pub enum BksEntryValue {
     SealedEntry(BksSealedEntry),
 }
 
+#[derive(Debug)]
 pub struct BksEntry {
     alias: String,
     timestamp: u64,
@@ -90,6 +96,7 @@ pub struct BksEntry {
     value: BksEntryValue,
 }
 
+#[derive(Debug)]
 pub struct BksKeyStore {
     version: u32,
     store_type: String,
@@ -144,7 +151,6 @@ where
     reader.read_exact(&mut size_buf).await?;
     let size: usize = u16::from_be_bytes(size_buf).try_into().unwrap();
     // Skip 2 bytes
-    reader.read_exact(&mut size_buf).await?;
     let mut buffer = Vec::with_capacity(size);
     unsafe { buffer.set_len(size) }
     reader.read_exact(&mut buffer).await?;
@@ -199,8 +205,6 @@ where
 
         let entry = BksEntry::load(reader, _type).await?;
         entries.insert(entry.alias.to_string(), entry);
-
-        todo!()
     }
     Ok(entries)
 }
