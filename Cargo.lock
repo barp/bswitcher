@@ -285,6 +285,7 @@ dependencies = [
  "async-net",
  "async-std",
  "async-stream",
+ "digest",
  "encoding",
  "hmac",
  "openssl",

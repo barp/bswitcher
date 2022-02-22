@@ -1,5 +1,6 @@
 use async_std::io::Read;
 use async_std::prelude::*;
+use digest::core_api::BlockSizeUser;
 use encoding::all::UTF_16BE;
 use encoding::{EncoderTrap, Encoding};
 use hmac::{Hmac, Mac};
@@ -252,7 +253,7 @@ fn _adjust(a: &mut Vec<u8>, a_offset: usize, b: &Vec<u8>) {
     }
 }
 
-fn rfc7292_derieve_key<T: Digest>(
+fn rfc7292_derieve_key<T: Digest + BlockSizeUser>(
     purpose: u8,
     password: String,
     salt: Vec<u8>,
@@ -264,7 +265,7 @@ fn rfc7292_derieve_key<T: Digest>(
         .unwrap();
     password_bytes.extend([0, 0].iter());
     let u = <T as Digest>::output_size() as u32;
-    let v = 512 / 8; // Sha1 block size, need to this for every sha algorithm
+    let v = <T as BlockSizeUser>::block_size();
     let d = vec![purpose; v];
     let s_len = ((salt.len() + v - 1) / v) * v; // round to lower multiplication
     let s: Vec<u8> = (0..s_len).map(|n| salt[n % salt.len()]).collect();
@@ -331,16 +332,13 @@ impl BksKeyStore {
             .into());
         }
         let salt = read_data(reader).await?;
-        println!("salt: {:?}", salt);
         let iteration_count = read_u32(reader).await?;
-        println!("iteration count: {:?}", iteration_count);
         let hmac_digest_size = Sha1::output_size();
         let hmac_key_size = if version != 1 {
             hmac_digest_size * 8
         } else {
             hmac_digest_size
         };
-        println!("key size: {:?}", hmac_key_size);
         let hmac_key = rfc7292_derieve_key::<Sha1>(
             3,
             password,
@@ -348,7 +346,6 @@ impl BksKeyStore {
             iteration_count,
             (hmac_key_size / 8).try_into().unwrap(),
         );
-        println!("key: {:?}", hmac_key);
         let (entries, calculated_hmac) = read_bks_entries_hmac(reader, &hmac_key).await?;
         let mut store_hmac = vec![0; Sha1::output_size()];
         reader.read_exact(&mut store_hmac).await?;

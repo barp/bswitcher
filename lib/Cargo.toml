@@ -20,6 +20,7 @@ openssl = "0.10"
 hmac = "0.12"
 sha1 = "0.10"
 encoding = "0.2"
+digest = {version = "0.10", features = ["core-api"]}
 pyo3 = { version = "0.15.1", features = ["extension-module"], optional = true}
 
 [dependencies.async-std]
