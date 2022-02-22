@@ -3,6 +3,17 @@
 version = 3
 
 [[package]]
+name = "aes"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfe0133578c0986e1fe3dfcd4af1cc5b2dd6c3dbf534d69916ce16a2701d40ba"
+dependencies = [
+ "cfg-if 1.0.0",
+ "cipher",
+ "cpufeatures",
+]
+
+[[package]]
 name = "async-attributes"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -251,6 +262,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "block-padding"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5808df4b2412175c4db3afb115c83d8d0cd26ca4f30a042026cddef8580e526a"
+dependencies = [
+ "generic-array",
+]
+
+[[package]]
 name = "blocking"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -281,10 +301,13 @@ dependencies = [
 name = "bswitch"
 version = "0.1.0"
 dependencies = [
+ "aes",
  "async-native-tls",
  "async-net",
  "async-std",
  "async-stream",
+ "cbc",
+ "des",
  "digest",
  "encoding",
  "hmac",
@@ -327,6 +350,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1db59621ec70f09c5e9b597b220c7a2b43611f4710dc03ceb8748637775692c"
 
 [[package]]
+name = "cbc"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2c68b1d4a461fc5641967e1b255c976579a87ef000c043850ca1aff89faa128"
+dependencies = [
+ "cipher",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -343,6 +375,16 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
+
+[[package]]
+name = "cipher"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "035bd298db1557b73a277e9c599c5a50e0d2e6ee9dcac78f3f951cb2f7d88d8c"
+dependencies = [
+ "crypto-common",
+ "inout",
+]
 
 [[package]]
 name = "clap"
@@ -447,6 +489,15 @@ checksum = "ccc0a48a9b826acdf4028595adc9db92caea352f7af011a3034acd172a52a0aa"
 dependencies = [
  "quote",
  "syn",
+]
+
+[[package]]
+name = "des"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffdd80ce8ce993de27e9f063a444a4d53ce8e8db4c1f00cc03af5ad5a9867a1e"
+dependencies = [
+ "cipher",
 ]
 
 [[package]]
@@ -893,6 +944,16 @@ dependencies = [
  "quote",
  "syn",
  "unindent",
+]
+
+[[package]]
+name = "inout"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e1f03d4ab4d5dc9ec2d219f86c15d2a15fc08239d1cd3b2d6a19717c0a2f443"
+dependencies = [
+ "block-padding",
+ "generic-array",
 ]
 
 [[package]]

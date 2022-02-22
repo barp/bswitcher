@@ -4,27 +4,30 @@ import hashlib
 import sys, base64, textwrap
 import jks
 
-# def print_pem(der_bytes, type):
-#   print("-----BEGIN %s-----" % type)
-#   print("\r\n".join(
-#       textwrap.wrap(base64.b64encode(der_bytes).decode('ascii'), 64)))
-#   print("-----END %s-----" % type)
-#
-#
-# ks: jks.BksKeyStore = jks.BksKeyStore.load(sys.argv[1], sys.argv[2])
-# # if any of the keys in the store use a password that is not the same as the store password:
-# # ks.entries["key1"].decrypt("key_password")
-#
-# for alias, pk in ks.entries.items():
-#   print("Private key: %s" % pk.alias)
-#   print_pem(pk.pkey_pkcs8, "PRIVATE KEY")
-#   # if pk.algorithm_oid == jks.util.RSA_ENCRYPTION_OID:
-#   #   print_pem(pk.pkey, "RSA PRIVATE KEY")
-#   # else:
-#
-#   for c in pk.cert_chain:
-#     print_pem(c.cert, "CERTIFICATE")
-#   print()
+
+def print_pem(der_bytes, type):
+  print("-----BEGIN %s-----" % type)
+  print("\r\n".join(
+      textwrap.wrap(base64.b64encode(der_bytes).decode('ascii'), 64)))
+  print("-----END %s-----" % type)
+
+
+ks: jks.BksKeyStore = jks.BksKeyStore.load(sys.argv[1], sys.argv[2])
+# if any of the keys in the store use a password that is not the same as the store password:
+# ks.entries["key1"].decrypt("key_password")
+
+for alias, pk in ks.entries.items():
+  print("Private key: %s" % pk.alias)
+  print_pem(pk.encrypted, "PRIVATE KEY")
+  # if pk.algorithm_oid == jks.util.RSA_ENCRYPTION_OID:
+  #   print_pem(pk.pkey, "RSA PRIVATE KEY")
+  # else:
+
+  for c in pk.cert_chain:
+    print_pem(c.cert, "CERTIFICATE")
+  print()
+
+sys.exit(0)
 
 
 def derive_key(hashfn, purpose_byte, password_str, salt, iteration_count,

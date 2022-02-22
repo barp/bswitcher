@@ -1,5 +1,6 @@
-use async_std::io::Read;
+use async_std::io::{BufReader, Read};
 use async_std::prelude::*;
+use des::cipher::{block_padding::Pkcs7, BlockDecryptMut, KeyIvInit};
 use digest::core_api::BlockSizeUser;
 use encoding::all::UTF_16BE;
 use encoding::{EncoderTrap, Encoding};
@@ -10,6 +11,8 @@ use std::pin::Pin;
 use std::task::Poll;
 
 use crate::bks::errors;
+
+type Des3EdeCBC = cbc::Decryptor<des::TdesEde3>;
 
 #[derive(Debug)]
 pub struct BksTrustedCertEntry {
@@ -75,6 +78,8 @@ impl BksSecretEntry {
 #[derive(Debug)]
 pub struct BksSealedEntry {
     sealed_data: Vec<u8>,
+    salt: Vec<u8>,
+    iteration_count: u32,
 }
 
 impl BksSealedEntry {
@@ -83,7 +88,16 @@ impl BksSealedEntry {
         T: Read + Unpin,
     {
         let sealed_data = read_data(reader).await?;
-        Ok(Self { sealed_data })
+        let mut reader = BufReader::new(sealed_data.as_slice());
+        let salt = read_data(&mut reader).await?;
+        let iteration_count = read_u32(&mut reader).await?;
+        let mut sealed_data: Vec<u8> = Vec::new();
+        reader.read_to_end(&mut sealed_data).await?;
+        Ok(Self {
+            sealed_data,
+            salt,
+            iteration_count,
+        })
     }
 }
 
@@ -190,7 +204,11 @@ where
 }
 
 impl BksEntry {
-    async fn load<T>(reader: &mut T, _type: u8) -> Result<BksEntry, errors::BksError>
+    async fn load<T>(
+        reader: &mut T,
+        _type: u8,
+        password: &String,
+    ) -> Result<BksEntry, errors::BksError>
     where
         T: Read + Unpin,
     {
@@ -209,7 +227,30 @@ impl BksEntry {
             }
             2 => BksEntryValue::KeyEntry(BksKeyEntry::load(reader).await?),
             3 => BksEntryValue::SecretEntry(BksSecretEntry::load(reader).await?),
-            4 => BksEntryValue::SealedEntry(BksSealedEntry::load(reader).await?),
+            4 => {
+                let mut entry = BksSealedEntry::load(reader).await?;
+                let mut iv: [u8; 8] = [0; 8];
+                iv.copy_from_slice(&rfc7292_derieve_key::<Sha1>(
+                    2,
+                    password,
+                    &entry.salt,
+                    entry.iteration_count,
+                    64 / 8,
+                ));
+                let mut key: [u8; 24] = [0; 24];
+                // desired result [28, 186, 17, 147, 85, 95, 22, 149, 96, 121, 9, 174, 141, 101, 61, 89, 1, 56, 57, 236, 208, 38, 247, 153]
+                key.copy_from_slice(&rfc7292_derieve_key::<Sha1>(
+                    1,
+                    password,
+                    &entry.salt,
+                    entry.iteration_count,
+                    192 / 8,
+                ));
+                let mut pt = Des3EdeCBC::new(&key.into(), &iv.into())
+                    .decrypt_padded_mut::<Pkcs7>(&mut entry.sealed_data)
+                    .unwrap();
+                BksEntryValue::KeyEntry(BksKeyEntry::load(&mut pt).await?)
+            }
             _ => {
                 return Err(errors::BksError::FormatError(errors::BksFormatError::new(
                     "bad entry type".to_string(),
@@ -225,7 +266,10 @@ impl BksEntry {
     }
 }
 
-async fn read_bks_entries<T>(reader: &mut T) -> Result<HashMap<String, BksEntry>, errors::BksError>
+async fn read_bks_entries<T>(
+    reader: &mut T,
+    password: &String,
+) -> Result<HashMap<String, BksEntry>, errors::BksError>
 where
     T: Read + Unpin,
 {
@@ -235,7 +279,7 @@ where
             break;
         }
 
-        let entry = BksEntry::load(reader, _type).await?;
+        let entry = BksEntry::load(reader, _type, password).await?;
         entries.insert(entry.alias.to_string(), entry);
     }
     Ok(entries)
@@ -246,7 +290,7 @@ fn _adjust(a: &mut Vec<u8>, a_offset: usize, b: &Vec<u8>) {
     a[a_offset + b.len() - 1] = (x & 0xff).try_into().unwrap();
     x >>= 8;
 
-    for i in (0..(b.len() - 2)).rev() {
+    for i in (0..(b.len() - 1)).rev() {
         x += (b[i] as u32) + (a[a_offset + i] as u32);
         a[a_offset + i] = (x & 0xff).try_into().unwrap();
         x >>= 8;
@@ -255,8 +299,8 @@ fn _adjust(a: &mut Vec<u8>, a_offset: usize, b: &Vec<u8>) {
 
 fn rfc7292_derieve_key<T: Digest + BlockSizeUser>(
     purpose: u8,
-    password: String,
-    salt: Vec<u8>,
+    password: &String,
+    salt: &Vec<u8>,
     iteration_count: u32,
     key_size: u32,
 ) -> Vec<u8> {
@@ -304,6 +348,7 @@ fn rfc7292_derieve_key<T: Digest + BlockSizeUser>(
 async fn read_bks_entries_hmac<T>(
     reader: &mut T,
     key: &[u8],
+    password: &String,
 ) -> Result<(HashMap<String, BksEntry>, Vec<u8>), errors::BksError>
 where
     T: Read + Unpin,
@@ -313,7 +358,7 @@ where
         hmac: Hmac::<Sha1>::new_from_slice(key).unwrap(),
     };
     Ok((
-        read_bks_entries(&mut hmac_reader).await?,
+        read_bks_entries(&mut hmac_reader, password).await?,
         hmac_reader.hmac.finalize().into_bytes().to_vec(),
     ))
 }
@@ -341,12 +386,13 @@ impl BksKeyStore {
         };
         let hmac_key = rfc7292_derieve_key::<Sha1>(
             3,
-            password,
-            salt,
+            &password,
+            &salt,
             iteration_count,
             (hmac_key_size / 8).try_into().unwrap(),
         );
-        let (entries, calculated_hmac) = read_bks_entries_hmac(reader, &hmac_key).await?;
+        let (entries, calculated_hmac) =
+            read_bks_entries_hmac(reader, &hmac_key, &password).await?;
         let mut store_hmac = vec![0; Sha1::output_size()];
         reader.read_exact(&mut store_hmac).await?;
         if store_hmac != calculated_hmac {
