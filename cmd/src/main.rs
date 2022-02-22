@@ -166,9 +166,12 @@ async fn main() {
             println!("{:?}", resp)
         }
         Commands::GetGuestKey { apk_path } => {
-            let bks = BksKeyStore::load(&mut fs::File::open(apk_path).await.unwrap())
-                .await
-                .unwrap();
+            let bks = BksKeyStore::load(
+                &mut fs::File::open(apk_path).await.unwrap(),
+                "SwitchBeePrivate".to_string(),
+            )
+            .await
+            .unwrap();
             println!("{:?}", bks)
         }
     }

@@ -240,30 +240,76 @@ where
     Ok(entries)
 }
 
-fn rfc7292_derieve_key<T: Mac>(
+fn _adjust(a: &mut Vec<u8>, a_offset: usize, b: &Vec<u8>) {
+    let mut x: u32 = (*b.last().unwrap() as u32) + (a[a_offset + b.len() - 1] as u32) + 1;
+    a[a_offset + b.len() - 1] = (x & 0xff).try_into().unwrap();
+    x >>= 8;
+
+    for i in (0..(b.len() - 2)).rev() {
+        x += (b[i] as u32) + (a[a_offset + i] as u32);
+        a[a_offset + i] = (x & 0xff).try_into().unwrap();
+        x >>= 8;
+    }
+}
+
+fn rfc7292_derieve_key<T: Digest>(
     purpose: u8,
     password: String,
     salt: Vec<u8>,
     iteration_count: u32,
     key_size: u32,
-) {
+) -> Vec<u8> {
     let mut password_bytes = UTF_16BE
         .encode(&password.to_string(), EncoderTrap::Strict)
         .unwrap();
     password_bytes.extend([0, 0].iter());
-    let u = T::output_size();
+    let u = <T as Digest>::output_size() as u32;
     let v = 512 / 8; // Sha1 block size, need to this for every sha algorithm
+    let d = vec![purpose; v];
+    let s_len = ((salt.len() + v - 1) / v) * v; // round to lower multiplication
+    let s: Vec<u8> = (0..s_len).map(|n| salt[n % salt.len()]).collect();
+    let p_len = ((password_bytes.len() + v - 1) / v) * v;
+    let p: Vec<u8> = (0..p_len)
+        .map(|n| password_bytes[n % password_bytes.len()])
+        .collect();
+    let mut I: Vec<u8> = s.iter().copied().chain(p.iter().copied()).collect();
+    let c = (key_size + u - 1) / u;
+    let mut derived_key: Vec<u8> = Vec::new();
+    for _ in 1..(c + 1) {
+        let mut a: Vec<u8> = T::digest(
+            d.iter()
+                .copied()
+                .chain(I.iter().copied())
+                .collect::<Vec<u8>>(),
+        )
+        .to_vec();
+        for _ in 1..iteration_count {
+            a = T::digest(a).to_vec();
+        }
+
+        let b: Vec<u8> = (0..v).map(|n| a[n % a.len()]).collect();
+
+        for j in 0..(I.len() / v) {
+            _adjust(&mut I, j * v, &b);
+        }
+
+        derived_key.extend(a)
+    }
+
+    derived_key.resize(key_size as usize, 0);
+    derived_key
 }
 
 async fn read_bks_entries_hmac<T>(
     reader: &mut T,
+    key: &[u8],
 ) -> Result<(HashMap<String, BksEntry>, Vec<u8>), errors::BksError>
 where
     T: Read + Unpin,
 {
     let mut hmac_reader = HMACReader {
         inner: reader,
-        hmac: Hmac::new_from_slice(b"test").unwrap(),
+        hmac: Hmac::<Sha1>::new_from_slice(key).unwrap(),
     };
     Ok((
         read_bks_entries(&mut hmac_reader).await?,
@@ -272,7 +318,7 @@ where
 }
 
 impl BksKeyStore {
-    pub async fn load<T>(reader: &mut T) -> Result<BksKeyStore, errors::BksError>
+    pub async fn load<T>(reader: &mut T, password: String) -> Result<BksKeyStore, errors::BksError>
     where
         T: Read + Unpin,
     {
@@ -284,15 +330,28 @@ impl BksKeyStore {
             )
             .into());
         }
-        let _salt = read_data(reader).await?;
-        let _iteration_count = read_u32(reader).await?;
-        let (entries, calculated_hmac) = read_bks_entries_hmac(reader).await?;
+        let salt = read_data(reader).await?;
+        println!("salt: {:?}", salt);
+        let iteration_count = read_u32(reader).await?;
+        println!("iteration count: {:?}", iteration_count);
+        let hmac_digest_size = Sha1::output_size();
+        let hmac_key_size = if version != 1 {
+            hmac_digest_size * 8
+        } else {
+            hmac_digest_size
+        };
+        println!("key size: {:?}", hmac_key_size);
+        let hmac_key = rfc7292_derieve_key::<Sha1>(
+            3,
+            password,
+            salt,
+            iteration_count,
+            (hmac_key_size / 8).try_into().unwrap(),
+        );
+        println!("key: {:?}", hmac_key);
+        let (entries, calculated_hmac) = read_bks_entries_hmac(reader, &hmac_key).await?;
         let mut store_hmac = vec![0; Sha1::output_size()];
         reader.read_exact(&mut store_hmac).await?;
-        println!(
-            "calculated: {:?}, stored: {:?}",
-            calculated_hmac, store_hmac
-        );
         if store_hmac != calculated_hmac {
             return Err(errors::BksError::SignatureError(
                 errors::KeystoreSignatureError::new(store_hmac, calculated_hmac),
