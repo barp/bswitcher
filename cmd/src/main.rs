@@ -1,11 +1,44 @@
 use async_std::fs;
 use base64;
 use clap::{Parser, Subcommand};
+use std::io::prelude::*;
+use std::io::{BufReader, BufWriter};
 
 use bswitch::api::*;
 use bswitch::bks::keystore::*;
 use bswitch::keygen::*;
 use bswitch::protocol::*;
+
+fn textwrap(input: &str) -> String {
+    let mut reader = BufReader::new(input.as_bytes());
+    let mut buf = BufWriter::new(Vec::new());
+    let mut temp: [u8; 64] = [0; 64];
+    let mut firstline = true;
+    loop {
+        match reader.read(&mut temp) {
+            Ok(n) => {
+                if n == 0 {
+                    break;
+                }
+                if !firstline {
+                    buf.write(&['\n' as u8]).unwrap();
+                }
+                firstline = false;
+                buf.write(&temp[..n]).unwrap();
+                ()
+            }
+            Err(_) => break,
+        }
+    }
+
+    String::from_utf8(buf.into_inner().unwrap()).unwrap()
+}
+
+fn print_pem(header: &str, data: &[u8]) {
+    println!("-----BEGIN {}-----", header);
+    println!("{}", textwrap(&base64::encode(data)));
+    println!("-----END {}-----", header);
+}
 
 #[derive(Parser)]
 struct Cli {
@@ -172,7 +205,15 @@ async fn main() {
             )
             .await
             .unwrap();
-            println!("{:?}", bks)
+            for (_, entry) in bks.entries().iter() {
+                match entry.value() {
+                    BksEntryValue::KeyEntry(key) => print_pem("PRIVATE KEY", key.data()),
+                    _ => (),
+                }
+                for cert in entry.cert_chain() {
+                    print_pem("CERTIFICATE", cert.data());
+                }
+            }
         }
     }
 }
