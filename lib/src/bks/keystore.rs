@@ -32,6 +32,14 @@ impl BksTrustedCertEntry {
             cert_data,
         })
     }
+
+    pub fn cert_type(&self) -> &str {
+        &self.cert_type
+    }
+
+    pub fn data(&self) -> &Vec<u8> {
+        &self.cert_data
+    }
 }
 
 #[derive(Debug)]
@@ -58,6 +66,22 @@ impl BksKeyEntry {
             key_enc,
         })
     }
+
+    pub fn key_type(&self) -> u8 {
+        self.key_type
+    }
+
+    pub fn key_format(&self) -> &str {
+        &self.key_format
+    }
+
+    pub fn key_algorithm(&self) -> &str {
+        &self.key_algorithm
+    }
+
+    pub fn data(&self) -> &Vec<u8> {
+        &self.key_enc
+    }
 }
 
 #[derive(Debug)]
@@ -72,6 +96,10 @@ impl BksSecretEntry {
     {
         let secret_data = read_data(reader).await?;
         Ok(Self { secret_data })
+    }
+
+    pub fn data(&self) -> &Vec<u8> {
+        &self.secret_data
     }
 }
 
@@ -117,11 +145,146 @@ pub struct BksEntry {
     value: BksEntryValue,
 }
 
+impl BksEntry {
+    async fn load<T>(
+        reader: &mut T,
+        _type: u8,
+        password: &String,
+    ) -> Result<BksEntry, errors::BksError>
+    where
+        T: Read + Unpin,
+    {
+        let alias = read_utf8(reader).await?;
+        let timestamp = read_u64(reader).await?;
+        let chain_length = read_u32(reader).await?;
+        let mut cert_chain: Vec<BksTrustedCertEntry> = Vec::new();
+        for _ in 0..chain_length {
+            let entry = BksTrustedCertEntry::load(reader).await?;
+            cert_chain.push(entry)
+        }
+        let value = match _type {
+            1 => {
+                let cert = BksTrustedCertEntry::load(reader).await?;
+                BksEntryValue::CertEntry(cert)
+            }
+            2 => BksEntryValue::KeyEntry(BksKeyEntry::load(reader).await?),
+            3 => BksEntryValue::SecretEntry(BksSecretEntry::load(reader).await?),
+            4 => {
+                let mut entry = BksSealedEntry::load(reader).await?;
+                let mut iv: [u8; 8] = [0; 8];
+                iv.copy_from_slice(&rfc7292_derieve_key::<Sha1>(
+                    2,
+                    password,
+                    &entry.salt,
+                    entry.iteration_count,
+                    64 / 8,
+                ));
+                let mut key: [u8; 24] = [0; 24];
+                key.copy_from_slice(&rfc7292_derieve_key::<Sha1>(
+                    1,
+                    password,
+                    &entry.salt,
+                    entry.iteration_count,
+                    192 / 8,
+                ));
+                let mut pt = Des3EdeCBC::new(&key.into(), &iv.into())
+                    .decrypt_padded_mut::<Pkcs7>(&mut entry.sealed_data)
+                    .unwrap();
+                BksEntryValue::KeyEntry(BksKeyEntry::load(&mut pt).await?)
+            }
+            _ => {
+                return Err(errors::BksError::FormatError(errors::BksFormatError::new(
+                    "bad entry type".to_string(),
+                )))
+            }
+        };
+        Ok(BksEntry {
+            alias,
+            timestamp,
+            cert_chain,
+            value,
+        })
+    }
+
+    pub fn alias(&self) -> &str {
+        &self.alias
+    }
+
+    pub fn timestamp(&self) -> u64 {
+        self.timestamp
+    }
+
+    pub fn cert_chain(&self) -> &Vec<BksTrustedCertEntry> {
+        &self.cert_chain
+    }
+
+    pub fn value(&self) -> &BksEntryValue {
+        &self.value
+    }
+}
+
 #[derive(Debug)]
 pub struct BksKeyStore {
     version: u32,
     store_type: String,
     entries: HashMap<String, BksEntry>,
+}
+
+impl BksKeyStore {
+    pub async fn load<T>(reader: &mut T, password: String) -> Result<BksKeyStore, errors::BksError>
+    where
+        T: Read + Unpin,
+    {
+        let version = read_u32(reader).await?;
+        let store_type = "bks".to_string();
+        if version != 1 && version != 2 {
+            return Err(errors::BksFormatError::new(
+                "Only bks bversion 1 and 2 are supported".to_string(),
+            )
+            .into());
+        }
+        let salt = read_data(reader).await?;
+        let iteration_count = read_u32(reader).await?;
+        let hmac_digest_size = Sha1::output_size();
+        let hmac_key_size = if version != 1 {
+            hmac_digest_size * 8
+        } else {
+            hmac_digest_size
+        };
+        let hmac_key = rfc7292_derieve_key::<Sha1>(
+            3,
+            &password,
+            &salt,
+            iteration_count,
+            (hmac_key_size / 8).try_into().unwrap(),
+        );
+        let (entries, calculated_hmac) =
+            read_bks_entries_hmac(reader, &hmac_key, &password).await?;
+        let mut store_hmac = vec![0; Sha1::output_size()];
+        reader.read_exact(&mut store_hmac).await?;
+        if store_hmac != calculated_hmac {
+            return Err(errors::BksError::SignatureError(
+                errors::KeystoreSignatureError::new(store_hmac, calculated_hmac),
+            ));
+        }
+        Ok(BksKeyStore {
+            version,
+            store_type,
+            entries,
+        })
+    }
+
+    pub fn version(&self) -> u32 {
+        self.version
+    }
+
+    pub fn store_type(&self) -> &str {
+        &self.store_type
+    }
+
+    pub fn entries(&self) -> &HashMap<String, BksEntry> {
+        &self.entries
+    }
 }
 
 struct HMACReader<'a, T: Read> {
@@ -201,69 +364,6 @@ where
     unsafe { buffer.set_len(size) }
     reader.read_exact(&mut buffer).await?;
     Ok(String::from_utf8(buffer)?)
-}
-
-impl BksEntry {
-    async fn load<T>(
-        reader: &mut T,
-        _type: u8,
-        password: &String,
-    ) -> Result<BksEntry, errors::BksError>
-    where
-        T: Read + Unpin,
-    {
-        let alias = read_utf8(reader).await?;
-        let timestamp = read_u64(reader).await?;
-        let chain_length = read_u32(reader).await?;
-        let mut cert_chain: Vec<BksTrustedCertEntry> = Vec::new();
-        for _ in 0..chain_length {
-            let entry = BksTrustedCertEntry::load(reader).await?;
-            cert_chain.push(entry)
-        }
-        let value = match _type {
-            1 => {
-                let cert = BksTrustedCertEntry::load(reader).await?;
-                BksEntryValue::CertEntry(cert)
-            }
-            2 => BksEntryValue::KeyEntry(BksKeyEntry::load(reader).await?),
-            3 => BksEntryValue::SecretEntry(BksSecretEntry::load(reader).await?),
-            4 => {
-                let mut entry = BksSealedEntry::load(reader).await?;
-                let mut iv: [u8; 8] = [0; 8];
-                iv.copy_from_slice(&rfc7292_derieve_key::<Sha1>(
-                    2,
-                    password,
-                    &entry.salt,
-                    entry.iteration_count,
-                    64 / 8,
-                ));
-                let mut key: [u8; 24] = [0; 24];
-                // desired result [28, 186, 17, 147, 85, 95, 22, 149, 96, 121, 9, 174, 141, 101, 61, 89, 1, 56, 57, 236, 208, 38, 247, 153]
-                key.copy_from_slice(&rfc7292_derieve_key::<Sha1>(
-                    1,
-                    password,
-                    &entry.salt,
-                    entry.iteration_count,
-                    192 / 8,
-                ));
-                let mut pt = Des3EdeCBC::new(&key.into(), &iv.into())
-                    .decrypt_padded_mut::<Pkcs7>(&mut entry.sealed_data)
-                    .unwrap();
-                BksEntryValue::KeyEntry(BksKeyEntry::load(&mut pt).await?)
-            }
-            _ => {
-                return Err(errors::BksError::FormatError(errors::BksFormatError::new(
-                    "bad entry type".to_string(),
-                )))
-            }
-        };
-        Ok(BksEntry {
-            alias,
-            timestamp,
-            cert_chain,
-            value,
-        })
-    }
 }
 
 async fn read_bks_entries<T>(
@@ -361,49 +461,4 @@ where
         read_bks_entries(&mut hmac_reader, password).await?,
         hmac_reader.hmac.finalize().into_bytes().to_vec(),
     ))
-}
-
-impl BksKeyStore {
-    pub async fn load<T>(reader: &mut T, password: String) -> Result<BksKeyStore, errors::BksError>
-    where
-        T: Read + Unpin,
-    {
-        let version = read_u32(reader).await?;
-        let store_type = "bks".to_string();
-        if version != 1 && version != 2 {
-            return Err(errors::BksFormatError::new(
-                "Only bks bversion 1 and 2 are supported".to_string(),
-            )
-            .into());
-        }
-        let salt = read_data(reader).await?;
-        let iteration_count = read_u32(reader).await?;
-        let hmac_digest_size = Sha1::output_size();
-        let hmac_key_size = if version != 1 {
-            hmac_digest_size * 8
-        } else {
-            hmac_digest_size
-        };
-        let hmac_key = rfc7292_derieve_key::<Sha1>(
-            3,
-            &password,
-            &salt,
-            iteration_count,
-            (hmac_key_size / 8).try_into().unwrap(),
-        );
-        let (entries, calculated_hmac) =
-            read_bks_entries_hmac(reader, &hmac_key, &password).await?;
-        let mut store_hmac = vec![0; Sha1::output_size()];
-        reader.read_exact(&mut store_hmac).await?;
-        if store_hmac != calculated_hmac {
-            return Err(errors::BksError::SignatureError(
-                errors::KeystoreSignatureError::new(store_hmac, calculated_hmac),
-            ));
-        }
-        Ok(BksKeyStore {
-            version,
-            store_type,
-            entries,
-        })
-    }
 }
