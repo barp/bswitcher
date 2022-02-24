@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 clap = {version = "3.0", features = ["derive"]}
 base64 = "0.13"
+zip = "0.5"
 openssl = "0.10"
 bswitch = { path = "../lib" }
 

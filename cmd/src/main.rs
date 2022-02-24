@@ -1,6 +1,8 @@
 use async_std::fs;
 use base64;
 use clap::{Parser, Subcommand};
+use openssl::pkey::PKey;
+use openssl::x509::X509;
 use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
 
@@ -84,6 +86,7 @@ enum Commands {
     },
     GetGuestKey {
         apk_path: String,
+        cert_path: String,
     },
 }
 
@@ -198,21 +201,37 @@ async fn main() {
                 .unwrap();
             println!("{:?}", resp)
         }
-        Commands::GetGuestKey { apk_path } => {
-            let bks = BksKeyStore::load(
-                &mut fs::File::open(apk_path).await.unwrap(),
-                "SwitchBeePrivate".to_string(),
-            )
-            .await
-            .unwrap();
+        Commands::GetGuestKey {
+            apk_path,
+            cert_path,
+        } => {
+            let mut zipfile = zip::ZipArchive::new(std::fs::File::open(apk_path).unwrap()).unwrap();
+            let mut data: Vec<u8> = Vec::new();
+            zipfile
+                .by_name("res/raw/client.bks")
+                .unwrap()
+                .read_to_end(&mut data)
+                .unwrap();
+            let bks = BksKeyStore::load(&mut data.as_slice(), "SwitchBeePrivate".to_string())
+                .await
+                .unwrap();
             for (_, entry) in bks.entries().iter() {
-                match entry.value() {
-                    BksEntryValue::KeyEntry(key) => print_pem("PRIVATE KEY", key.data()),
-                    _ => (),
+                let pk = match entry.value() {
+                    BksEntryValue::KeyEntry(key) => key.data(),
+                    _ => return,
+                };
+                if entry.cert_chain().len() == 0 {
+                    println!("failed to find certificate");
+                    return;
                 }
-                for cert in entry.cert_chain() {
-                    print_pem("CERTIFICATE", cert.data());
-                }
+                let pk = PKey::private_key_from_pkcs8(pk).unwrap();
+                let cert = X509::from_der(&entry.cert_chain()[0].data()).unwrap();
+                let pkcs12cert = openssl::pkcs12::Pkcs12::builder()
+                    .build("1234", "guest cert", &pk, &cert)
+                    .unwrap();
+                fs::write(cert_path, pkcs12cert.to_der().unwrap())
+                    .await
+                    .unwrap();
             }
         }
     }
