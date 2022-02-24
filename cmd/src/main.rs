@@ -1,6 +1,7 @@
 use async_std::fs;
 use base64;
 use clap::{Parser, Subcommand};
+use cli_clipboard;
 use openssl::pkey::PKey;
 use openssl::x509::X509;
 use std::io::prelude::*;
@@ -225,8 +226,13 @@ async fn main() {
                 let pkcs12cert = openssl::pkcs12::Pkcs12::builder()
                     .build("1234", "guest cert", &pk, &cert)
                     .unwrap();
-                println!("Copy the following to the registration input");
-                println!("{}", base64::encode(pkcs12cert.to_der().unwrap()));
+                let key = base64::encode(pkcs12cert.to_der().unwrap());
+                println!(
+                    "Copy the following to the registration input (should be in your clipboard):"
+                );
+                println!("{}", key);
+
+                cli_clipboard::set_contents(key.to_owned());
             }
         }
     }
