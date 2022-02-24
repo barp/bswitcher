@@ -86,7 +86,6 @@ enum Commands {
     },
     GetGuestKey {
         apk_path: String,
-        cert_path: String,
     },
 }
 
@@ -201,10 +200,7 @@ async fn main() {
                 .unwrap();
             println!("{:?}", resp)
         }
-        Commands::GetGuestKey {
-            apk_path,
-            cert_path,
-        } => {
+        Commands::GetGuestKey { apk_path } => {
             let mut zipfile = zip::ZipArchive::new(std::fs::File::open(apk_path).unwrap()).unwrap();
             let mut data: Vec<u8> = Vec::new();
             zipfile
@@ -229,9 +225,8 @@ async fn main() {
                 let pkcs12cert = openssl::pkcs12::Pkcs12::builder()
                     .build("1234", "guest cert", &pk, &cert)
                     .unwrap();
-                fs::write(cert_path, pkcs12cert.to_der().unwrap())
-                    .await
-                    .unwrap();
+                println!("Copy the following to the registration input");
+                println!("{}", base64::encode(pkcs12cert.to_der().unwrap()));
             }
         }
     }
