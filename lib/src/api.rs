@@ -3,6 +3,7 @@ use async_std;
 use async_std::fs;
 use async_std::net::UdpSocket;
 use async_std::prelude::*;
+use base64;
 use reqwest::tls::Identity;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -30,6 +31,8 @@ pub enum CombinedError {
     SerdeJsonError(serde_json::Error),
     ApiError(ApiError),
     Utf8Error(str::Utf8Error),
+    B64DecodeError(base64::DecodeError),
+    OpenSSLError(openssl::error::ErrorStack),
 }
 
 #[cfg(feature = "python")]
@@ -39,6 +42,18 @@ impl From<CombinedError> for PyErr {
             CombinedError::AsyncTlsError(err) => PyOSError::new_err(err.to_string()),
             _ => PyOSError::new_err("rust error"),
         }
+    }
+}
+
+impl From<openssl::error::ErrorStack> for CombinedError {
+    fn from(e: openssl::error::ErrorStack) -> Self {
+        Self::OpenSSLError(e)
+    }
+}
+
+impl From<base64::DecodeError> for CombinedError {
+    fn from(e: base64::DecodeError) -> Self {
+        Self::B64DecodeError(e)
     }
 }
 
@@ -320,14 +335,13 @@ pub async fn discover_central_units(exit_on_first: bool) -> Result<Vec<CuData>> 
     Ok(collect_responses(socket, exit_on_first).await?)
 }
 
-async fn get_guest_identity() -> Result<Identity> {
+pub async fn get_guest_identity() -> Result<Identity> {
     let contents = fs::read("./id.pfx").await?;
     Ok(reqwest::Identity::from_pkcs12_der(&contents, "1234")?)
 }
 
 // Client used for device registration, requires the guest certificate
-pub async fn get_default_https_client() -> Result<reqwest::Client> {
-    let identity = get_guest_identity().await?;
+pub async fn get_default_https_client(identity: Identity) -> Result<reqwest::Client> {
     Ok(Client::builder()
         // .add_root_certificate(cert)
         .danger_accept_invalid_certs(true)

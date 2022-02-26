@@ -55,6 +55,7 @@ enum Commands {
     Register {
         #[clap(long)]
         ip: Option<String>,
+        registration_name: String,
         email: String,
         password: String,
     },
@@ -113,11 +114,12 @@ async fn main() {
         }
         Commands::Register {
             ip,
+            registration_name,
             email,
             password,
         } => {
             let real_ip = get_cu_ip(ip).await.unwrap();
-            let (pk, cert) = generate_keypair("barp12@gmail.com");
+            let (pk, cert) = generate_keypair(email, registration_name);
             let params = RegisterDeviceParams {
                 name: email.to_string(),
                 email: email.to_string(),
@@ -127,7 +129,8 @@ async fn main() {
                 device: "android_REL_HA".to_string(),
                 device_certificate: base64::encode_config(cert.to_der().unwrap(), base64::URL_SAFE),
             };
-            let client = get_default_https_client().await.unwrap();
+            let identity = get_guest_identity().await.unwrap();
+            let client = get_default_https_client(identity).await.unwrap();
             let resp = register_device(&client, &real_ip, &params).await.unwrap();
             println!("resp: {:?}", resp);
             println!("saving private key in device.key");
@@ -232,7 +235,10 @@ async fn main() {
                 );
                 println!("{}", key);
 
-                cli_clipboard::set_contents(key.to_owned());
+                match cli_clipboard::set_contents(key.to_owned()) {
+                    Ok(()) => (),
+                    Err(e) => println!("failed to copy to clipboard: {:?}", e),
+                };
             }
         }
     }

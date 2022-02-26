@@ -6,14 +6,14 @@ use openssl::rsa::Rsa;
 use openssl::x509::{X509Name, X509};
 use std::time::SystemTime;
 
-pub fn generate_keypair(email: &str) -> (PKey<Private>, X509) {
+pub fn generate_keypair(email: &str, device_name: &str) -> (PKey<Private>, X509) {
     let rsa = Rsa::generate(2048).unwrap();
     let pkey = PKey::from_rsa(rsa).unwrap();
 
     let mut name = X509Name::builder().unwrap();
     name.append_entry_by_nid(Nid::ORGANIZATIONNAME, "SwitchBee")
         .unwrap();
-    name.append_entry_by_nid(Nid::ORGANIZATIONALUNITNAME, "android_REL_HA")
+    name.append_entry_by_nid(Nid::ORGANIZATIONALUNITNAME, device_name)
         .unwrap();
     name.append_entry_by_nid(Nid::LOCALITYNAME, email).unwrap();
 

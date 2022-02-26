@@ -357,6 +357,7 @@ dependencies = [
  "async-net",
  "async-std",
  "async-stream",
+ "base64",
  "cbc",
  "des",
  "digest",
@@ -376,10 +377,13 @@ version = "0.1.0"
 dependencies = [
  "async-native-tls",
  "async-std",
+ "base64",
  "bswitch",
+ "openssl",
  "pyo3",
  "pyo3-asyncio",
  "pyo3-build-config 0.14.5",
+ "reqwest",
 ]
 
 [[package]]

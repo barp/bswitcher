@@ -1,11 +1,14 @@
 use async_native_tls;
 use async_std::sync::{Arc, Mutex};
+use base64;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 
 use bswitch::api::{
-    discover_central_units, CombinedError, RegisterDeviceParams, UnitItemOperation,
+    discover_central_units, get_default_https_client, register_device as register_device_bswitch,
+    CombinedError, RegisterDeviceParams, UnitItemOperation,
 };
+use bswitch::keygen::generate_keypair;
 use bswitch::protocol::*;
 
 #[pyclass(name = "CuClient")]
@@ -140,10 +143,45 @@ fn discover_central_unit(py: Python) -> PyResult<&PyAny> {
     pyo3_asyncio::async_std::future_into_py(py, async { Ok(discover_central_units(true).await?) })
 }
 
+#[pyfunction]
+fn register_device(
+    py: Python,
+    identity: String,
+    ip: String,
+    device_name: String,
+    email: String,
+    key: String,
+) -> PyResult<&PyAny> {
+    pyo3_asyncio::async_std::future_into_py(py, async move {
+        let (pk, cert) = generate_keypair(&email, &device_name);
+        let identity = base64::decode(identity).map_err(|e| CombinedError::from(e))?;
+        let identity = reqwest::Identity::from_pkcs12_der(&identity, "1234")
+            .map_err(|e| CombinedError::from(e))?;
+        let client = get_default_https_client(identity).await?;
+        let params = RegisterDeviceParams {
+            name: email.to_string(),
+            email: email.to_string(),
+            key: key.to_string(),
+            password: "".to_string(),
+            pin: "".to_string(),
+            device: device_name,
+            device_certificate: base64::encode_config(cert.to_der().unwrap(), base64::URL_SAFE),
+        };
+        register_device_bswitch(&client, &ip, &params)
+            .await
+            .map_err(|e| CombinedError::from(e))?;
+        let pkcs12cert = openssl::pkcs12::Pkcs12::builder()
+            .build("1234", "device cert", &pk, &cert)
+            .unwrap();
+        Ok(pkcs12cert.to_der().map_err(|e| CombinedError::from(e))?)
+    })
+}
+
 #[pymodule]
 fn pybswitch(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyCuClient>()?;
     m.add_class::<RegisterDeviceParams>()?;
     m.add_function(wrap_pyfunction!(discover_central_unit, m)?)?;
+    m.add_function(wrap_pyfunction!(register_device, m)?)?;
     Ok(())
 }
