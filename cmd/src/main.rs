@@ -5,43 +5,42 @@ use cli_clipboard;
 use openssl::pkey::PKey;
 use openssl::x509::X509;
 use std::io::prelude::*;
-use std::io::{BufReader, BufWriter};
 
 use bswitch::api::*;
 use bswitch::bks::keystore::*;
 use bswitch::keygen::*;
 use bswitch::protocol::*;
 
-fn textwrap(input: &str) -> String {
-    let mut reader = BufReader::new(input.as_bytes());
-    let mut buf = BufWriter::new(Vec::new());
-    let mut temp: [u8; 64] = [0; 64];
-    let mut firstline = true;
-    loop {
-        match reader.read(&mut temp) {
-            Ok(n) => {
-                if n == 0 {
-                    break;
-                }
-                if !firstline {
-                    buf.write(&['\n' as u8]).unwrap();
-                }
-                firstline = false;
-                buf.write(&temp[..n]).unwrap();
-                ()
-            }
-            Err(_) => break,
-        }
-    }
-
-    String::from_utf8(buf.into_inner().unwrap()).unwrap()
-}
-
-fn print_pem(header: &str, data: &[u8]) {
-    println!("-----BEGIN {}-----", header);
-    println!("{}", textwrap(&base64::encode(data)));
-    println!("-----END {}-----", header);
-}
+// fn textwrap(input: &str) -> String {
+//     let mut reader = BufReader::new(input.as_bytes());
+//     let mut buf = BufWriter::new(Vec::new());
+//     let mut temp: [u8; 64] = [0; 64];
+//     let mut firstline = true;
+//     loop {
+//         match reader.read(&mut temp) {
+//             Ok(n) => {
+//                 if n == 0 {
+//                     break;
+//                 }
+//                 if !firstline {
+//                     buf.write(&['\n' as u8]).unwrap();
+//                 }
+//                 firstline = false;
+//                 buf.write(&temp[..n]).unwrap();
+//                 ()
+//             }
+//             Err(_) => break,
+//         }
+//     }
+//
+//     String::from_utf8(buf.into_inner().unwrap()).unwrap()
+// }
+//
+// fn print_pem(header: &str, data: &[u8]) {
+//     println!("-----BEGIN {}-----", header);
+//     println!("{}", textwrap(&base64::encode(data)));
+//     println!("-----END {}-----", header);
+// }
 
 #[derive(Parser)]
 struct Cli {
