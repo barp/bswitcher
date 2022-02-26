@@ -417,14 +417,14 @@ fn rfc7292_derieve_key<T: Digest + BlockSizeUser>(
     let p: Vec<u8> = (0..p_len)
         .map(|n| password_bytes[n % password_bytes.len()])
         .collect();
-    let mut I: Vec<u8> = s.iter().copied().chain(p.iter().copied()).collect();
+    let mut i_part: Vec<u8> = s.iter().copied().chain(p.iter().copied()).collect();
     let c = (key_size + u - 1) / u;
     let mut derived_key: Vec<u8> = Vec::new();
     for _ in 1..(c + 1) {
         let mut a: Vec<u8> = T::digest(
             d.iter()
                 .copied()
-                .chain(I.iter().copied())
+                .chain(i_part.iter().copied())
                 .collect::<Vec<u8>>(),
         )
         .to_vec();
@@ -434,8 +434,8 @@ fn rfc7292_derieve_key<T: Digest + BlockSizeUser>(
 
         let b: Vec<u8> = (0..v).map(|n| a[n % a.len()]).collect();
 
-        for j in 0..(I.len() / v) {
-            _adjust(&mut I, j * v, &b);
+        for j in 0..(i_part.len() / v) {
+            _adjust(&mut i_part, j * v, &b);
         }
 
         derived_key.extend(a)

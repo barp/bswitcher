@@ -21,6 +21,7 @@ base64 = "0.13"
 hmac = "0.12"
 sha1 = "0.10"
 encoding = "0.2"
+hex = "0.4"
 digest = {version = "0.10", features = ["core-api"]}
 cbc = "0.1"
 des = "0.8"
