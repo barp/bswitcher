@@ -159,11 +159,11 @@ fn register_device(
             .map_err(|e| CombinedError::from(e))?;
         let client = get_default_https_client(identity).await?;
         let params = RegisterDeviceParams {
-            name: email.to_string(),
-            email: email.to_string(),
-            key: key.to_string(),
-            password: "".to_string(),
-            pin: "".to_string(),
+            name: email.to_owned(),
+            email: email.to_owned(),
+            key: key.to_owned(),
+            password: "".to_owned(),
+            pin: "".to_owned(),
             device: device_name,
             device_certificate: base64::encode_config(cert.to_der().unwrap(), base64::URL_SAFE),
         };

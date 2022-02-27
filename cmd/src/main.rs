@@ -120,12 +120,12 @@ async fn main() {
             let real_ip = get_cu_ip(ip).await.unwrap();
             let (pk, cert) = generate_keypair(email, registration_name);
             let params = RegisterDeviceParams {
-                name: email.to_string(),
-                email: email.to_string(),
-                key: password.to_string(),
-                password: "".to_string(),
-                pin: "".to_string(),
-                device: "android_REL_HA".to_string(),
+                name: email.to_owned(),
+                email: email.to_owned(),
+                key: password.to_owned(),
+                password: "".to_owned(),
+                pin: "".to_owned(),
+                device: registration_name.to_owned(),
                 device_certificate: base64::encode_config(cert.to_der().unwrap(), base64::URL_SAFE),
             };
             let identity = get_guest_identity().await.unwrap();
