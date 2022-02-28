@@ -23,14 +23,18 @@ use pyo3::prelude::*;
 #[derive(Debug)]
 pub struct ApiError {
     pub status: OperationStatus,
+    pub is_wrong_message_id: bool,
 }
 
 impl Display for ApiError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!(
-            "SwitchBee API error returned: {}",
-            self.status.to_string()
-        ))
+        match self.is_wrong_message_id {
+            false => f.write_fmt(format_args!(
+                "SwitchBee API error returned: {}",
+                self.status.to_string()
+            )),
+            true => f.write_fmt(format_args!("Got bad message id from server")),
+        }
     }
 }
 
@@ -415,6 +419,7 @@ pub async fn register_device(
     if resp.status.status != OperationStatus::OK {
         return Err(CombinedError::ApiError(ApiError {
             status: resp.status.status,
+            is_wrong_message_id: false,
         }));
     }
     Ok(resp)
@@ -433,6 +438,7 @@ impl CuClient {
         if resp.status != OperationStatus::OK {
             return Err(CombinedError::ApiError(ApiError {
                 status: resp.status,
+                is_wrong_message_id: true,
             }));
         }
         Ok(resp)

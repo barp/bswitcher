@@ -111,8 +111,8 @@ impl CuClient {
     }
 
     pub async fn request(&mut self, request: &str) -> Result<String> {
-        let message =
-            MessageWrapper::new(MessageType::Request, self.message_id, request.to_string());
+        let id = self.message_id;
+        let message = MessageWrapper::new(MessageType::Request, id, request.to_string());
         let message = Self::create_prefixed_message(&message.serialize());
         self.stream.write_all(&message).await?;
         self.message_id += 1;
