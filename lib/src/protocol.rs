@@ -33,12 +33,12 @@ struct MessageWrapper {
 }
 
 impl MessageWrapper {
-    fn new(message_type: MessageType, message_id: u32, message: String) -> MessageWrapper {
+    fn new(message_type: MessageType, message_id: u32, message: &str) -> MessageWrapper {
         MessageWrapper {
             message_type,
             priority: 0,
             message_id,
-            message,
+            message: message.to_owned(),
         }
     }
     fn serialize(&self) -> Vec<u8> {
@@ -50,7 +50,7 @@ impl MessageWrapper {
         result
     }
 
-    fn deserialize(data: &Vec<u8>) -> Result<MessageWrapper> {
+    fn deserialize(data: &[u8]) -> Result<MessageWrapper> {
         Ok(MessageWrapper {
             message_type: data[0].try_into().unwrap(),
             priority: data[1],
@@ -112,7 +112,7 @@ impl CuClient {
 
     pub async fn request(&mut self, request: &str) -> Result<String> {
         let id = self.message_id;
-        let message = MessageWrapper::new(MessageType::Request, id, request.to_string());
+        let message = MessageWrapper::new(MessageType::Request, id, request);
         let message = Self::create_prefixed_message(&message.serialize());
         self.stream.write_all(&message).await?;
         self.message_id += 1;

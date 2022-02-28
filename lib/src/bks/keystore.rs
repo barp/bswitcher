@@ -149,7 +149,7 @@ impl BksEntry {
     async fn load<T>(
         reader: &mut T,
         _type: u8,
-        password: &String,
+        password: &str,
     ) -> Result<BksEntry, errors::BksError>
     where
         T: Read + Unpin,
@@ -182,7 +182,7 @@ impl BksEntry {
                 let mut key: [u8; 24] = [0; 24];
                 key.copy_from_slice(&rfc7292_derieve_key::<Sha1>(
                     1,
-                    password,
+                    &password.to_owned(),
                     &entry.salt,
                     entry.iteration_count,
                     192 / 8,
@@ -231,7 +231,7 @@ pub struct BksKeyStore {
 }
 
 impl BksKeyStore {
-    pub async fn load<T>(reader: &mut T, password: String) -> Result<BksKeyStore, errors::BksError>
+    pub async fn load<T>(reader: &mut T, password: &str) -> Result<BksKeyStore, errors::BksError>
     where
         T: Read + Unpin,
     {
@@ -253,7 +253,7 @@ impl BksKeyStore {
         };
         let hmac_key = rfc7292_derieve_key::<Sha1>(
             3,
-            &password,
+            password,
             &salt,
             iteration_count,
             (hmac_key_size / 8).try_into().unwrap(),
@@ -368,7 +368,7 @@ where
 
 async fn read_bks_entries<T>(
     reader: &mut T,
-    password: &String,
+    password: &str,
 ) -> Result<HashMap<String, BksEntry>, errors::BksError>
 where
     T: Read + Unpin,
@@ -385,7 +385,7 @@ where
     Ok(entries)
 }
 
-fn _adjust(a: &mut Vec<u8>, a_offset: usize, b: &Vec<u8>) {
+fn _adjust(a: &mut [u8], a_offset: usize, b: &[u8]) {
     let mut x: u32 = (*b.last().unwrap() as u32) + (a[a_offset + b.len() - 1] as u32) + 1;
     a[a_offset + b.len() - 1] = (x & 0xff).try_into().unwrap();
     x >>= 8;
@@ -399,8 +399,8 @@ fn _adjust(a: &mut Vec<u8>, a_offset: usize, b: &Vec<u8>) {
 
 fn rfc7292_derieve_key<T: Digest + BlockSizeUser>(
     purpose: u8,
-    password: &String,
-    salt: &Vec<u8>,
+    password: &str,
+    salt: &[u8],
     iteration_count: u32,
     key_size: u32,
 ) -> Vec<u8> {
@@ -448,7 +448,7 @@ fn rfc7292_derieve_key<T: Digest + BlockSizeUser>(
 async fn read_bks_entries_hmac<T>(
     reader: &mut T,
     key: &[u8],
-    password: &String,
+    password: &str,
 ) -> Result<(HashMap<String, BksEntry>, Vec<u8>), errors::BksError>
 where
     T: Read + Unpin,

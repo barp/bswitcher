@@ -211,7 +211,7 @@ async fn main() {
                 .unwrap()
                 .read_to_end(&mut data)
                 .unwrap();
-            let bks = BksKeyStore::load(&mut data.as_slice(), "SwitchBeePrivate".to_string())
+            let bks = BksKeyStore::load(&mut data.as_slice(), "SwitchBeePrivate")
                 .await
                 .unwrap();
             for (_, entry) in bks.entries().iter() {
