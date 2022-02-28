@@ -118,6 +118,12 @@ impl CuClient {
         self.message_id += 1;
         let buf = self.read_prefixed_message().await?;
         let response = MessageWrapper::deserialize(&buf).unwrap();
+        if response.message_id != id {
+            return Err(CombinedError::ApiError(ApiError {
+                status: OperationStatus::OK,
+                is_wrong_message_id: true,
+            }));
+        }
         Ok(response.message)
     }
 }

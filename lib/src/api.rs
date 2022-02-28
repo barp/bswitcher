@@ -398,7 +398,7 @@ pub async fn get_device_identity(path: &str) -> Result<async_native_tls::Identit
 
 pub async fn register_device(
     client: &reqwest::Client,
-    ip: &String,
+    ip: &str,
     params: &RegisterDeviceParams,
 ) -> Result<RegisterDeviceResponse> {
     let req_text = "REGD".to_string() + &serde_json::to_string(params)?;
