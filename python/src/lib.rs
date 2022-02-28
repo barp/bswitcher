@@ -6,7 +6,8 @@ use pyo3::wrap_pyfunction;
 
 use bswitch::api::{
     discover_central_units, get_default_https_client, register_device as register_device_bswitch,
-    CombinedError, RegisterDeviceParams, UnitItemOperation,
+    Base64DecodeError, CombinedError, HttpsError, IoError, JSONDecodeError, PyApiError,
+    RegisterDeviceParams, TlsError, UnitItemOperation, Ut8DecodeError,
 };
 use bswitch::keygen::generate_keypair;
 use bswitch::protocol::*;
@@ -181,6 +182,13 @@ fn register_device(
 fn pybswitch(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyCuClient>()?;
     m.add_class::<RegisterDeviceParams>()?;
+    m.add("TlsError", _py.get_type::<TlsError>())?;
+    m.add("ApiError", _py.get_type::<PyApiError>())?;
+    m.add("IoError", _py.get_type::<IoError>())?;
+    m.add("HttpsError", _py.get_type::<HttpsError>())?;
+    m.add("JSONDecodeError", _py.get_type::<JSONDecodeError>())?;
+    m.add("Utf8DecodeError", _py.get_type::<Ut8DecodeError>())?;
+    m.add("Base64DecodeError", _py.get_type::<Base64DecodeError>())?;
     m.add_function(wrap_pyfunction!(discover_central_unit, m)?)?;
     m.add_function(wrap_pyfunction!(register_device, m)?)?;
     Ok(())

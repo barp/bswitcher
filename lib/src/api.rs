@@ -7,14 +7,16 @@ use base64;
 use reqwest::tls::Identity;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::fmt::{self, Debug};
+use std::fmt::{self, Debug, Display};
 use std::str;
 use std::time::{Duration, SystemTime};
 
 use crate::protocol::CuClient;
 
 #[cfg(feature = "python")]
-use pyo3::exceptions::PyOSError;
+use pyo3::create_exception;
+#[cfg(feature = "python")]
+use pyo3::exceptions::PyException;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
@@ -22,6 +24,36 @@ use pyo3::prelude::*;
 pub struct ApiError {
     pub status: OperationStatus,
 }
+
+impl Display for ApiError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!(
+            "SwitchBee API error returned: {}",
+            self.status.to_string()
+        ))
+    }
+}
+
+#[cfg(feature = "python")]
+create_exception!(pybswitch, TlsError, PyException);
+
+#[cfg(feature = "python")]
+create_exception!(pybswitch, IoError, PyException);
+
+#[cfg(feature = "python")]
+create_exception!(pybswitch, HttpsError, PyException);
+
+#[cfg(feature = "python")]
+create_exception!(pybswitch, JSONDecodeError, PyException);
+
+#[cfg(feature = "python")]
+create_exception!(pybswitch, PyApiError, PyException);
+
+#[cfg(feature = "python")]
+create_exception!(pybswitch, Ut8DecodeError, PyException);
+
+#[cfg(feature = "python")]
+create_exception!(pybswitch, Base64DecodeError, PyException);
 
 #[derive(Debug)]
 pub enum CombinedError {
@@ -39,8 +71,14 @@ pub enum CombinedError {
 impl From<CombinedError> for PyErr {
     fn from(err: CombinedError) -> Self {
         match err {
-            CombinedError::AsyncTlsError(err) => PyOSError::new_err(err.to_string()),
-            _ => PyOSError::new_err("rust error"),
+            CombinedError::IoError(err) => IoError::new_err(err.to_string()),
+            CombinedError::ReqwestError(err) => HttpsError::new_err(err.to_string()),
+            CombinedError::AsyncTlsError(err) => TlsError::new_err(err.to_string()),
+            CombinedError::SerdeJsonError(err) => JSONDecodeError::new_err(err.to_string()),
+            CombinedError::ApiError(err) => PyApiError::new_err(err.to_string()),
+            CombinedError::Utf8Error(err) => Ut8DecodeError::new_err(err.to_string()),
+            CombinedError::B64DecodeError(err) => Base64DecodeError::new_err(err.to_string()),
+            CombinedError::OpenSSLError(err) => TlsError::new_err(err.to_string()),
         }
     }
 }
