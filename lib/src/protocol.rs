@@ -81,7 +81,7 @@ impl CuClient {
         })
     }
 
-    fn create_prefixed_message(message: &Vec<u8>) -> Vec<u8> {
+    fn create_prefixed_message(message: &[u8]) -> Vec<u8> {
         let mut result = Vec::<u8>::with_capacity(8 + message.len());
         // Magic code
         result.push(127);
@@ -121,6 +121,7 @@ impl CuClient {
         if response.message_id != id {
             return Err(CombinedError::ApiError(ApiError {
                 status: OperationStatus::OK,
+                message: response.message,
                 is_wrong_message_id: true,
             }));
         }

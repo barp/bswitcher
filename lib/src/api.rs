@@ -23,6 +23,7 @@ use pyo3::prelude::*;
 #[derive(Debug)]
 pub struct ApiError {
     pub status: OperationStatus,
+    pub message: String,
     pub is_wrong_message_id: bool,
 }
 
@@ -414,10 +415,11 @@ pub async fn register_device(
             return Err(CombinedError::ReqwestError(e));
         }
     };
-    let resp = req.text().await?;
-    let resp: RegisterDeviceResponse = serde_json::from_str(&resp)?;
+    let resp_text = req.text().await?;
+    let resp: RegisterDeviceResponse = serde_json::from_str(&resp_text)?;
     if resp.status.status != OperationStatus::OK {
         return Err(CombinedError::ApiError(ApiError {
+            message: resp_text,
             status: resp.status.status,
             is_wrong_message_id: false,
         }));
@@ -437,8 +439,9 @@ impl CuClient {
         let resp: CuStatus = serde_json::from_str(&resp)?;
         if resp.status != OperationStatus::OK {
             return Err(CombinedError::ApiError(ApiError {
+                message: resp.status.to_string(),
                 status: resp.status,
-                is_wrong_message_id: true,
+                is_wrong_message_id: false,
             }));
         }
         Ok(resp)
