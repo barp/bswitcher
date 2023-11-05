@@ -35,13 +35,13 @@ jobs:
         mv "$TEMP_FILE" Cargo.toml
       shell: bash
     - name: maturin-action
-      uses: messense/maturin-action@v1
+      uses: messense/maturin-action@v1.40.7
       with:
         maturin-version: latest
         command: sdist
         args: -m python/Cargo.toml
     - name: maturin-action
-      uses: messense/maturin-action@v1
+      uses: messense/maturin-action@v1.40.7
       with:
         maturin-version: latest
         command: build
