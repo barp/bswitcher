@@ -26,7 +26,7 @@ digest = {version = "0.10", features = ["core-api"]}
 cbc = "0.1"
 des = "0.8"
 aes = "0.8"
-pyo3 = { version = "0.15.1", features = ["extension-module"], optional = true}
+pyo3 = { version = "0.19", features = ["extension-module"], optional = true}
 
 [dependencies.async-std]
 version = "1.10"

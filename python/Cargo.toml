@@ -11,8 +11,8 @@ path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.15.1", features = ["extension-module"]}
-pyo3-asyncio = { version = "0.15", features = ["attributes", "async-std-runtime"]}
+pyo3 = { version = "0.19", features = ["extension-module"]}
+pyo3-asyncio = { version = "0.19", features = ["attributes", "async-std-runtime"]}
 async-native-tls = "0.4"
 base64 = "0.13"
 openssl = "0.10"
