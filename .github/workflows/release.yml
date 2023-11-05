@@ -92,6 +92,8 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     needs: build
+    permissions:
+      id-token: write
     steps:
     - uses: actions/download-artifact@v2
       with:
@@ -117,3 +119,5 @@ jobs:
           New release for ${{ github.sha }}.
           ${{ steps.github_release.outputs.changelog }}
         files: ./bswitch_python-*
+    - name: Upload to pypi
+      uses: pypa/gh-action-pypi-publish@release/v1
