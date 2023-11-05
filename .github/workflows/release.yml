@@ -46,6 +46,36 @@ jobs:
         maturin-version: latest
         command: build
         args: -m python/Cargo.toml
+    - name: maturin-action
+      uses: messense/maturin-action@v1.40.7
+      with:
+        maturin-version: latest
+        command: build
+        args: -m python/Cargo.toml -i python3.7
+    - name: maturin-action
+      uses: messense/maturin-action@v1.40.7
+      with:
+        maturin-version: latest
+        command: build
+        args: -m python/Cargo.toml -i python3.8
+    - name: maturin-action
+      uses: messense/maturin-action@v1.40.7
+      with:
+        maturin-version: latest
+        command: build
+        args: -m python/Cargo.toml -i python3.9
+    - name: maturin-action
+      uses: messense/maturin-action@v1.40.7
+      with:
+        maturin-version: latest
+        command: build
+        args: -m python/Cargo.toml -i python3.10
+    - name: maturin-action
+      uses: messense/maturin-action@v1.40.7
+      with:
+        maturin-version: latest
+        command: build
+        args: -m python/Cargo.toml -i python3.11
     - name: Archive Artifact
       uses: actions/upload-artifact@v2
       with:
