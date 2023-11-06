@@ -48,7 +48,7 @@ jobs:
         manylinux: musllinux_1_2
         before-script-linux: |
           echo "Building OpenSSL"
-          DEBIAN_FRONTEND=noninteractive apt install -y pkg-config libxcb-shape0-dev libxcb-xfixes0-dev libxcb1-dev
+          DEBIAN_FRONTEND=noninteractive apt update && apt install -y pkg-config libxcb-shape0-dev libxcb-xfixes0-dev libxcb1-dev
           export OPENSSL_VERSION=1.1.1m
           ls /usr/include/linux
           mkdir -p /usr/local/musl/include
