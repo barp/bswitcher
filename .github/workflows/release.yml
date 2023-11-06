@@ -48,6 +48,7 @@ jobs:
         manylinux: musllinux_1_2
         before-script-linux: |
           echo "Building OpenSSL"
+          export OPENSSL_VERSION=1.1.1m
           ls /usr/include/linux
           mkdir -p /usr/local/musl/include
           ln -s /usr/include/linux /usr/local/musl/include/linux
