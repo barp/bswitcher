@@ -46,6 +46,7 @@ jobs:
         maturin-version: latest
         target: x86_64-unknown-linux-musl
         manylinux: musllinux_1_2
+        container: ekidd/rust-musl-builder
         command: build
         args: --release -m python/Cargo.toml -i 3.7 3.8 3.9 3.10 3.11 3.12
     - name: Archive Artifact
