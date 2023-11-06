@@ -179,7 +179,7 @@ fn register_device(
 }
 
 #[pymodule]
-fn pybswitch(_py: Python, m: &PyModule) -> PyResult<()> {
+fn libpybswitch(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyCuClient>()?;
     m.add_class::<RegisterDeviceParams>()?;
     m.add("TlsError", _py.get_type::<TlsError>())?;

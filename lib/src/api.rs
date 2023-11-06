@@ -40,25 +40,25 @@ impl Display for ApiError {
 }
 
 #[cfg(feature = "python")]
-create_exception!(pybswitch, TlsError, PyException);
+create_exception!(libpybswitch, TlsError, PyException);
 
 #[cfg(feature = "python")]
-create_exception!(pybswitch, IoError, PyException);
+create_exception!(libpybswitch, IoError, PyException);
 
 #[cfg(feature = "python")]
-create_exception!(pybswitch, HttpsError, PyException);
+create_exception!(libpybswitch, HttpsError, PyException);
 
 #[cfg(feature = "python")]
-create_exception!(pybswitch, JSONDecodeError, PyException);
+create_exception!(libpybswitch, JSONDecodeError, PyException);
 
 #[cfg(feature = "python")]
-create_exception!(pybswitch, PyApiError, PyException);
+create_exception!(libpybswitch, PyApiError, PyException);
 
 #[cfg(feature = "python")]
-create_exception!(pybswitch, Ut8DecodeError, PyException);
+create_exception!(libpybswitch, Ut8DecodeError, PyException);
 
 #[cfg(feature = "python")]
-create_exception!(pybswitch, Base64DecodeError, PyException);
+create_exception!(libpybswitch, Base64DecodeError, PyException);
 
 #[derive(Debug)]
 pub enum CombinedError {
