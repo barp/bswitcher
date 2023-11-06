@@ -51,6 +51,12 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt update && apt install -y pkg-config libxcb-shape0-dev libxcb-xfixes0-dev libxcb1-dev libssl-dev
         command: build
         args: --release -m python/Cargo.toml -i 3.7 3.8 3.9 3.10 3.11 3.12
+    - name: maturin-action
+      uses: messense/maturin-action@v1.40.7
+      with:
+        maturin-version: latest
+        command: build
+        args: --release -m python/Cargo.toml -i 3.7 3.8 3.9 3.10 3.11 3.12
     - name: Archive Artifact
       uses: actions/upload-artifact@v2
       with:
