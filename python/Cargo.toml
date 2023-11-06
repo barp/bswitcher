@@ -15,7 +15,7 @@ pyo3 = { version = "0.19", features = ["extension-module"]}
 pyo3-asyncio = { version = "0.19", features = ["attributes", "async-std-runtime"]}
 async-native-tls = "0.4"
 base64 = "0.13"
-openssl = "0.10"
+openssl = {version = "0.10", features = ["vendored"]}
 reqwest = {version = "0.11.9", features = ["native-tls"]}
 bswitch = { path = "../lib", features = ["python"]}
 
