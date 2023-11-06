@@ -44,38 +44,10 @@ jobs:
       uses: messense/maturin-action@v1.40.7
       with:
         maturin-version: latest
+        target: x86_64-unknonwn-linux-musl
+        manylinux: musllinux_1_2
         command: build
-        args: -m python/Cargo.toml --compatibility musllinux_1_2
-    - name: maturin-action
-      uses: messense/maturin-action@v1.40.7
-      with:
-        maturin-version: latest
-        command: build
-        args: -m python/Cargo.toml -i python3.7 --compatibility musllinux_1_2
-    - name: maturin-action
-      uses: messense/maturin-action@v1.40.7
-      with:
-        maturin-version: latest
-        command: build
-        args: -m python/Cargo.toml -i python3.8 --compatibility musllinux_1_2
-    - name: maturin-action
-      uses: messense/maturin-action@v1.40.7
-      with:
-        maturin-version: latest
-        command: build
-        args: -m python/Cargo.toml -i python3.9 --compatibility musllinux_1_2
-    - name: maturin-action
-      uses: messense/maturin-action@v1.40.7
-      with:
-        maturin-version: latest
-        command: build
-        args: -m python/Cargo.toml -i python3.10 --compatibility musllinux_1_2
-    - name: maturin-action
-      uses: messense/maturin-action@v1.40.7
-      with:
-        maturin-version: latest
-        command: build
-        args: -m python/Cargo.toml -i python3.11 --compatibility musllinux_1_2
+        args: --release -m python/Cargo.toml -i 3.7 3.8 3.9 3.10 3.11 3.12
     - name: Archive Artifact
       uses: actions/upload-artifact@v2
       with:
