@@ -59,7 +59,7 @@ jobs:
           curl -fLO "https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz"
           curl -fLO "https://www.openssl.org/source/old/$short_version/openssl-$OPENSSL_VERSION.tar.gz"
           tar xvzf "openssl-$OPENSSL_VERSION.tar.gz" && cd "openssl-$OPENSSL_VERSION"
-          env CC=musl-gcc ./Configure no-shared no-zlib -fPIC --prefix=/usr/local/musl -DOPENSSL_NO_SECURE_MEMORY linux-x86_64
+          env CC=x86_64-unknown-linux-musl-gcc ./Configure no-shared no-zlib -fPIC --prefix=/usr/local/musl -DOPENSSL_NO_SECURE_MEMORY linux-x86_64
           env C_INCLUDE_PATH=/usr/local/musl/include/ make depend
           env C_INCLUDE_PATH=/usr/local/musl/include/ make
           make install 
