@@ -1,3 +1,5 @@
+use std::fs::File;
+use std::io::prelude::*;
 use async_std::fs;
 use base64;
 use clap::{Parser, Subcommand};
@@ -87,6 +89,8 @@ enum Commands {
     },
     GetGuestKey {
         apk_path: String,
+        #[clap(short, long, name = "output")]
+        output: Option<String>,
     },
 }
 
@@ -203,7 +207,7 @@ async fn main() {
                 .unwrap();
             println!("{:?}", resp)
         }
-        Commands::GetGuestKey { apk_path } => {
+        Commands::GetGuestKey { apk_path , output} => {
             let mut zipfile = zip::ZipArchive::new(std::fs::File::open(apk_path).unwrap()).unwrap();
             let mut data: Vec<u8> = Vec::new();
             zipfile
@@ -228,16 +232,21 @@ async fn main() {
                 let pkcs12cert = openssl::pkcs12::Pkcs12::builder()
                     .build("1234", "guest cert", &pk, &cert)
                     .unwrap();
-                let key = base64::encode(pkcs12cert.to_der().unwrap());
-                println!(
-                    "Copy the following to the registration input (should be in your clipboard):"
-                );
-                println!("{}", key);
+                let key = pkcs12cert.to_der().unwrap();
+                if let Some(filename) = output {
+                    let mut file = File::create(filename).unwrap();
+                    file.write(&key).unwrap();
+                } else {
+                    let key = base64::encode(key);
+                    println!("Copy the following to the registration input (should be in your clipboard):");
+                    println!("{}", key);
 
-                match cli_clipboard::set_contents(key.to_owned()) {
-                    Ok(()) => (),
-                    Err(e) => println!("failed to copy to clipboard: {:?}", e),
-                };
+                    match cli_clipboard::set_contents(key.to_owned()) {
+                        Ok(()) => (),
+                        Err(e) => println!("failed to copy to clipboard: {:?}", e),
+                    };
+                }
+                
             }
         }
     }
