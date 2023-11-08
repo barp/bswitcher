@@ -147,7 +147,6 @@ fn discover_central_unit(py: Python) -> PyResult<&PyAny> {
 #[pyfunction]
 fn register_device(
     py: Python,
-    identity: String,
     ip: String,
     device_name: String,
     email: String,
@@ -155,10 +154,7 @@ fn register_device(
 ) -> PyResult<&PyAny> {
     pyo3_asyncio::async_std::future_into_py(py, async move {
         let (pk, cert) = generate_keypair(&email, &device_name);
-        let identity = base64::decode(identity).map_err(|e| CombinedError::from(e))?;
-        let identity = reqwest::Identity::from_pkcs12_der(&identity, "1234")
-            .map_err(|e| CombinedError::from(e))?;
-        let client = get_default_https_client(identity).await?;
+        let client = get_default_https_client().await?;
         let params = RegisterDeviceParams {
             name: email.to_owned(),
             email: email.to_owned(),

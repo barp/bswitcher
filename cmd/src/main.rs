@@ -6,7 +6,6 @@ use clap::{Parser, Subcommand};
 use cli_clipboard;
 use openssl::pkey::PKey;
 use openssl::x509::X509;
-use std::io::prelude::*;
 
 use bswitch::api::*;
 use bswitch::bks::keystore::*;
@@ -132,8 +131,7 @@ async fn main() {
                 device: registration_name.to_owned(),
                 device_certificate: base64::encode_config(cert.to_der().unwrap(), base64::URL_SAFE),
             };
-            let identity = get_guest_identity().await.unwrap();
-            let client = get_default_https_client(identity).await.unwrap();
+            let client = get_default_https_client().await.unwrap();
             let resp = register_device(&client, &real_ip, &params).await.unwrap();
             println!("resp: {:?}", resp);
             println!("saving private key in device.key");
@@ -232,12 +230,12 @@ async fn main() {
                 let pkcs12cert = openssl::pkcs12::Pkcs12::builder()
                     .build("1234", "guest cert", &pk, &cert)
                     .unwrap();
-                let key = pkcs12cert.to_der().unwrap();
+                let cert = pkcs12cert.to_der().unwrap();
                 if let Some(filename) = output {
                     let mut file = File::create(filename).unwrap();
-                    file.write(&key).unwrap();
+                    file.write(&cert).unwrap();
                 } else {
-                    let key = base64::encode(key);
+                    let key = base64::encode(cert);
                     println!("Copy the following to the registration input (should be in your clipboard):");
                     println!("{}", key);
 

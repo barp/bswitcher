@@ -379,16 +379,16 @@ pub async fn discover_central_units(exit_on_first: bool) -> Result<Vec<CuData>> 
 }
 
 pub async fn get_guest_identity() -> Result<Identity> {
-    let contents = fs::read("./id.pfx").await?;
-    Ok(reqwest::Identity::from_pkcs12_der(&contents, "1234")?)
+    let contents = include_bytes!("key");
+    Ok(reqwest::Identity::from_pkcs12_der(contents, "1234")?)
 }
 
 // Client used for device registration, requires the guest certificate
-pub async fn get_default_https_client(identity: Identity) -> Result<reqwest::Client> {
+pub async fn get_default_https_client() -> Result<reqwest::Client> {
     Ok(Client::builder()
         // .add_root_certificate(cert)
         .danger_accept_invalid_certs(true)
-        .identity(identity)
+        .identity(get_guest_identity().await?)
         .build()?)
 }
 
