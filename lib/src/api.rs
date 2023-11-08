@@ -221,7 +221,7 @@ pub struct RegisterDeviceParams {
     #[serde(rename = "deviceCertificate")]
     pub device_certificate: String,
     pub email: String,
-    // password
+    // password generated when adding a managing device in the application menu
     pub key: String,
     // Admin name
     pub name: String,
